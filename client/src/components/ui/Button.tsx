@@ -19,19 +19,19 @@ export const Button: React.FC<ButtonProps> = ({
   disabled,
   ...props
 }) => {
-  const baseClasses = 'btn';
+  const baseClasses = 'inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50';
 
   const variantClasses = {
-    primary: 'btn-primary',
-    secondary: 'btn-secondary',
-    outline: 'btn-outline',
-    danger: 'bg-danger text-white hover:bg-danger-700',
+    primary: 'bg-primary text-white hover:bg-primary-dark focus-visible:ring-primary',
+    secondary: 'bg-card text-primary border border-primary hover:bg-primary-light focus-visible:ring-primary',
+    outline: 'border border-border bg-transparent text-text-primary hover:bg-border-light focus-visible:ring-border',
+    danger: 'bg-error text-white hover:bg-error/90 focus-visible:ring-error',
   };
 
   const sizeClasses = {
-    sm: 'px-3 py-1.5 text-sm h-8',
-    md: 'px-4 py-2 text-sm h-10',
-    lg: 'px-6 py-3 text-base h-12',
+    sm: 'px-4 py-2 text-sm',
+    md: 'px-6 py-3 text-sm',
+    lg: 'px-8 py-4 text-base',
   };
 
   return (
@@ -42,7 +42,7 @@ export const Button: React.FC<ButtonProps> = ({
     >
       {loading && (
         <svg
-          className="animate-spin -ml-1 mr-2 h-4 w-4"
+          className="animate-spin h-4 w-4"
           xmlns="http://www.w3.org/2000/svg"
           fill="none"
           viewBox="0 0 24 24"
@@ -62,7 +62,7 @@ export const Button: React.FC<ButtonProps> = ({
           />
         </svg>
       )}
-      {Icon && !loading && <Icon className="mr-2 h-4 w-4" />}
+      {Icon && !loading && <Icon className="h-4 w-4" />}
       {children}
     </button>
   );

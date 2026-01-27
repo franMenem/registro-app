@@ -40,8 +40,8 @@ const Dashboard: React.FC = () => {
           <span
             className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
               row.tipo === 'RENTAS'
-                ? 'bg-primary-100 text-primary-700'
-                : 'bg-success-100 text-success-700'
+                ? 'bg-primary-light text-primary'
+                : 'bg-success-light text-success'
             }`}
           >
             {row.tipo}
@@ -49,7 +49,7 @@ const Dashboard: React.FC = () => {
         );
       case 'monto':
         return (
-          <span className="font-semibold text-secondary-900">
+          <span className="font-semibold text-text-primary font-mono">
             {formatCurrency(row.monto)}
           </span>
         );
@@ -62,8 +62,8 @@ const Dashboard: React.FC = () => {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-secondary-900">Dashboard</h1>
-        <p className="text-muted mt-1">Resumen de movimientos de hoy</p>
+        <h1 className="text-3xl font-bold text-text-primary">Dashboard</h1>
+        <p className="text-text-secondary mt-1">Resumen de movimientos de hoy</p>
       </div>
 
       {/* Stats Cards */}

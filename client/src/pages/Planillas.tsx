@@ -46,7 +46,7 @@ const Planillas: React.FC = () => {
         return formatDate(row[column.key]);
       case 'total_recaudado':
         return (
-          <span className="font-semibold text-secondary-900">
+          <span className="font-semibold text-text-primary font-mono">
             {formatCurrency(row.total_recaudado)}
           </span>
         );
@@ -55,8 +55,8 @@ const Planillas: React.FC = () => {
           <span
             className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
               row.pagado
-                ? 'bg-success-100 text-success-700'
-                : 'bg-warning-100 text-warning-700'
+                ? 'bg-success-light text-success'
+                : 'bg-warning-light text-warning'
             }`}
           >
             {row.pagado ? 'Pagado' : 'Pendiente'}
@@ -75,7 +75,7 @@ const Planillas: React.FC = () => {
         return formatDate(row[column.key]);
       case 'total_recaudado':
         return (
-          <span className="font-semibold text-secondary-900">
+          <span className="font-semibold text-text-primary font-mono">
             {formatCurrency(row.total_recaudado)}
           </span>
         );
@@ -84,8 +84,8 @@ const Planillas: React.FC = () => {
           <span
             className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
               row.pagado
-                ? 'bg-success-100 text-success-700'
-                : 'bg-warning-100 text-warning-700'
+                ? 'bg-success-light text-success'
+                : 'bg-warning-light text-warning'
             }`}
           >
             {row.pagado ? 'Pagado' : 'Pendiente'}
@@ -100,8 +100,8 @@ const Planillas: React.FC = () => {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-secondary-900">Planillas</h1>
-        <p className="text-muted mt-1">Controles de pagos semanales y quincenales</p>
+        <h1 className="text-3xl font-bold text-text-primary">Planillas</h1>
+        <p className="text-text-secondary mt-1">Controles de pagos semanales y quincenales</p>
       </div>
 
       {/* Controles Semanales */}

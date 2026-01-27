@@ -72,8 +72,8 @@ const CuentasCorrientes: React.FC = () => {
           <span
             className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
               row.tipo_movimiento === 'INGRESO'
-                ? 'bg-success-100 text-success-700'
-                : 'bg-danger-100 text-danger-700'
+                ? 'bg-success-light text-success'
+                : 'bg-error-light text-error'
             }`}
           >
             {row.tipo_movimiento}
@@ -82,8 +82,8 @@ const CuentasCorrientes: React.FC = () => {
       case 'monto':
         return (
           <span
-            className={`font-semibold ${
-              row.tipo_movimiento === 'INGRESO' ? 'text-success-600' : 'text-danger-600'
+            className={`font-semibold font-mono ${
+              row.tipo_movimiento === 'INGRESO' ? 'text-success' : 'text-error'
             }`}
           >
             {row.tipo_movimiento === 'INGRESO' ? '+' : '-'}
@@ -92,7 +92,7 @@ const CuentasCorrientes: React.FC = () => {
         );
       case 'saldo_resultante':
         return (
-          <span className="font-semibold text-secondary-900">
+          <span className="font-semibold text-text-primary font-mono">
             {formatCurrency(row.saldo_resultante)}
           </span>
         );
@@ -114,8 +114,8 @@ const CuentasCorrientes: React.FC = () => {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-secondary-900">Cuentas Corrientes</h1>
-        <p className="text-muted mt-1">Gestión de cuentas corrientes</p>
+        <h1 className="text-3xl font-bold text-text-primary">Cuentas Corrientes</h1>
+        <p className="text-text-secondary mt-1">Gestión de cuentas corrientes</p>
       </div>
 
       {/* Tabs */}
@@ -128,7 +128,7 @@ const CuentasCorrientes: React.FC = () => {
               className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
                 selectedCuentaId === cuenta.id
                   ? 'border-primary text-primary'
-                  : 'border-transparent text-muted hover:text-secondary-700 hover:border-secondary-300'
+                  : 'border-transparent text-text-muted hover:text-text-primary hover:border-border'
               }`}
             >
               {cuenta.nombre}

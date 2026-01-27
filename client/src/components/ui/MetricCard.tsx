@@ -22,30 +22,28 @@ export const MetricCard: React.FC<MetricCardProps> = ({
   trend,
 }) => {
   return (
-    <div className="card">
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <p className="text-sm text-muted mb-1">{label}</p>
-          <p className="text-2xl font-bold text-secondary-900 mb-1">{value}</p>
-          {subtitle && <p className="text-sm text-muted">{subtitle}</p>}
-        </div>
+    <div className="bg-card rounded-xl border border-border p-6">
+      <div className="flex items-start justify-between mb-2">
+        <p className="text-sm font-medium text-text-secondary">{label}</p>
         {Icon && (
-          <div className={`rounded-lg p-3 ${iconColor} bg-primary-50`}>
+          <div className={iconColor}>
             <Icon className="h-6 w-6" />
           </div>
         )}
       </div>
+      <p className="text-3xl font-bold text-text-primary font-mono mb-2">{value}</p>
+      {subtitle && <p className="text-sm text-text-muted">{subtitle}</p>}
       {trend && (
-        <div className="mt-3 pt-3 border-t border-border">
+        <div className="mt-4 pt-4 border-t border-border">
           <span
             className={`text-sm font-medium ${
-              trend.isPositive ? 'text-success' : 'text-danger'
+              trend.isPositive ? 'text-success' : 'text-error'
             }`}
           >
             {trend.isPositive ? '+' : ''}
             {trend.value}%
           </span>
-          <span className="text-sm text-muted ml-2">vs mes anterior</span>
+          <span className="text-sm text-text-muted ml-2">vs mes anterior</span>
         </div>
       )}
     </div>

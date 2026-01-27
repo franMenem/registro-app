@@ -138,8 +138,8 @@ const FormularioCaja: React.FC = () => {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-secondary-900">Formulario CAJA</h1>
-        <p className="text-muted mt-1">Registrar nuevo movimiento de CAJA</p>
+        <h1 className="text-3xl font-bold text-text-primary">Formulario CAJA</h1>
+        <p className="text-text-secondary mt-1">Registrar nuevo movimiento de CAJA</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -238,15 +238,15 @@ const FormularioCaja: React.FC = () => {
                 movimientos.map((mov) => (
                   <div
                     key={mov.id}
-                    className="flex justify-between items-start p-3 rounded-lg bg-secondary-50"
+                    className="flex justify-between items-start p-3 rounded-lg bg-border-light"
                   >
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-secondary-900 truncate">
+                      <p className="text-sm font-medium text-text-primary truncate">
                         {mov.concepto?.nombre || 'N/A'}
                       </p>
-                      <p className="text-xs text-muted mt-0.5">{formatDate(mov.fecha)}</p>
+                      <p className="text-xs text-text-muted mt-0.5">{formatDate(mov.fecha)}</p>
                     </div>
-                    <span className="text-sm font-semibold text-secondary-900 ml-2">
+                    <span className="text-sm font-semibold text-text-primary font-mono ml-2">
                       {formatCurrency(mov.monto)}
                     </span>
                   </div>

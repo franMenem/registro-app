@@ -7,17 +7,17 @@ const Reportes: React.FC = () => {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-secondary-900">Reportes</h1>
-        <p className="text-muted mt-1">Análisis y reportes financieros</p>
+        <h1 className="text-3xl font-bold text-text-primary">Reportes</h1>
+        <p className="text-text-secondary mt-1">Análisis y reportes financieros</p>
       </div>
 
       <Card>
         <div className="flex flex-col items-center justify-center py-12 text-center">
-          <BarChart3 className="h-16 w-16 text-muted mb-4" />
-          <h3 className="text-lg font-semibold text-secondary-900 mb-2">
+          <BarChart3 className="h-16 w-16 text-text-muted mb-4" />
+          <h3 className="text-lg font-semibold text-text-primary mb-2">
             Módulo en Desarrollo
           </h3>
-          <p className="text-muted max-w-md">
+          <p className="text-text-secondary max-w-md">
             La sección de reportes estará disponible en la próxima fase del proyecto.
             Incluirá gráficos, exportación a Excel/PDF y análisis detallados.
           </p>

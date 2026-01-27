@@ -27,12 +27,12 @@ export const Table: React.FC<TableProps> = ({
   return (
     <div className="overflow-x-auto">
       <table className="min-w-full divide-y divide-border">
-        <thead className="bg-secondary-50">
+        <thead className="bg-border-light">
           <tr>
             {columns.map((column) => (
               <th
                 key={column.key}
-                className={`px-6 py-3 text-xs font-medium text-secondary-700 uppercase tracking-wider ${
+                className={`px-6 py-3 text-xs font-medium text-text-secondary uppercase tracking-wider ${
                   column.align === 'right'
                     ? 'text-right'
                     : column.align === 'center'
@@ -46,7 +46,7 @@ export const Table: React.FC<TableProps> = ({
             ))}
           </tr>
         </thead>
-        <tbody className="bg-white divide-y divide-border">
+        <tbody className="bg-card divide-y divide-border">
           {loading ? (
             <tr>
               <td colSpan={columns.length} className="px-6 py-8 text-center">
@@ -76,7 +76,7 @@ export const Table: React.FC<TableProps> = ({
             </tr>
           ) : data.length === 0 ? (
             <tr>
-              <td colSpan={columns.length} className="px-6 py-8 text-center text-muted">
+              <td colSpan={columns.length} className="px-6 py-8 text-center text-text-muted">
                 {emptyMessage}
               </td>
             </tr>
@@ -84,7 +84,7 @@ export const Table: React.FC<TableProps> = ({
             data.map((row, rowIndex) => (
               <tr
                 key={rowIndex}
-                className={`hover:bg-secondary-50 ${
+                className={`hover:bg-border-light transition-colors ${
                   onRowClick ? 'cursor-pointer' : ''
                 }`}
                 onClick={() => onRowClick?.(row)}
@@ -92,7 +92,7 @@ export const Table: React.FC<TableProps> = ({
                 {columns.map((column) => (
                   <td
                     key={column.key}
-                    className={`px-6 py-4 whitespace-nowrap text-sm ${
+                    className={`px-6 py-4 whitespace-nowrap text-sm text-text-primary ${
                       column.align === 'right'
                         ? 'text-right'
                         : column.align === 'center'
