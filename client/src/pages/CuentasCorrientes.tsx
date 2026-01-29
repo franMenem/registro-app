@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { Landmark, Download, Search, X, Edit, Trash2, Check, Upload, AlertTriangle } from 'lucide-react';
+import { Landmark, Download, X, Edit, Trash2, Check, Upload, AlertTriangle } from 'lucide-react';
 import { cuentasApi } from '@/services/api';
 import { formatCurrency, formatDate } from '@/utils/format';
 import { MovimientoCC } from '@/types';
@@ -18,7 +18,7 @@ const CuentasCorrientes: React.FC = () => {
   const [filters, setFilters] = useState({
     fechaDesde: '',
     fechaHasta: '',
-    origen: 'todos',
+    tipo: 'todos', // 'todos', 'INGRESO', 'EGRESO'
   });
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editValue, setEditValue] = useState<number>(0);
@@ -64,8 +64,8 @@ const CuentasCorrientes: React.FC = () => {
   }, [selectedCuentaId]);
 
   // Fetch movimientos for selected cuenta
-  const { data: movimientos = [], isLoading: movimientosLoading } = useQuery({
-    queryKey: ['movimientos-cc', selectedCuentaId, filters],
+  const { data: movimientosRaw = [], isLoading: movimientosLoading } = useQuery({
+    queryKey: ['movimientos-cc', selectedCuentaId, filters.fechaDesde, filters.fechaHasta],
     queryFn: () =>
       cuentasApi.getMovimientos(selectedCuentaId!, {
         fecha_desde: filters.fechaDesde || undefined,
@@ -73,6 +73,14 @@ const CuentasCorrientes: React.FC = () => {
       }),
     enabled: !!selectedCuentaId,
   });
+
+  // Aplicar filtro de tipo en el frontend
+  const movimientos = React.useMemo(() => {
+    if (filters.tipo === 'todos') {
+      return movimientosRaw;
+    }
+    return movimientosRaw.filter((m) => m.tipo_movimiento === filters.tipo);
+  }, [movimientosRaw, filters.tipo]);
 
   const selectedCuenta = cuentasRentas.find((c) => c.id === selectedCuentaId);
 
@@ -161,12 +169,18 @@ const CuentasCorrientes: React.FC = () => {
     }
   };
 
-  // Calculate stats
-  const totalGastado = movimientos
+  // Calculate stats - HISTÓRICOS (todos los movimientos)
+  const totalIngresos = movimientos
+    .filter((m) => m.tipo_movimiento === 'INGRESO')
+    .reduce((sum, m) => sum + m.monto, 0);
+
+  const totalEgresos = movimientos
     .filter((m) => m.tipo_movimiento === 'EGRESO')
     .reduce((sum, m) => sum + m.monto, 0);
 
-  const promedioDiario = movimientos.length > 0 ? totalGastado / movimientos.length : 0;
+  const saldoActual = selectedCuenta?.saldo_actual || 0;
+
+  const promedioDiario = movimientos.length > 0 ? totalEgresos / movimientos.length : 0;
   const ultimoMovimiento = movimientos.length > 0 ? movimientos[0].fecha : null;
 
   const columns: TableColumn[] = [
@@ -275,7 +289,7 @@ const CuentasCorrientes: React.FC = () => {
   };
 
   const handleClearFilters = () => {
-    setFilters({ fechaDesde: '', fechaHasta: '', origen: 'todos' });
+    setFilters({ fechaDesde: '', fechaHasta: '', tipo: 'todos' });
   };
 
   const handleExportExcel = () => {
@@ -369,20 +383,38 @@ const CuentasCorrientes: React.FC = () => {
           </h2>
         </div>
 
-        <div className="space-y-2">
-          <p className="text-sm font-medium text-text-secondary">
-            Total Gastado (Mes Actual - Enero 2026)
-          </p>
-          <p className="text-4xl font-bold text-primary font-mono">
-            {formatCurrency(totalGastado)}
-          </p>
+        <div className="grid grid-cols-3 gap-6">
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-text-secondary">
+              Total Ingresos Histórico
+            </p>
+            <p className="text-3xl font-bold text-success font-mono">
+              {formatCurrency(totalIngresos)}
+            </p>
+          </div>
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-text-secondary">
+              Total Egresos Histórico
+            </p>
+            <p className="text-3xl font-bold text-error font-mono">
+              {formatCurrency(totalEgresos)}
+            </p>
+          </div>
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-text-secondary">
+              Saldo Actual Disponible
+            </p>
+            <p className={`text-3xl font-bold font-mono ${saldoActual >= 0 ? 'text-success' : 'text-error'}`}>
+              {formatCurrency(saldoActual)}
+            </p>
+          </div>
         </div>
 
-        <div className="space-y-1.5 pt-2">
+        <div className="space-y-1.5 pt-2 border-t border-border">
           <div className="flex items-center gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-text-muted" />
             <span className="text-sm text-text-secondary">
-              Promedio diario: {formatCurrency(promedioDiario)}
+              Promedio diario egresos: {formatCurrency(promedioDiario)}
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -421,20 +453,17 @@ const CuentasCorrientes: React.FC = () => {
               className="w-40"
             />
             <Select
-              label="Origen"
-              name="origen"
-              value={filters.origen}
+              label="Tipo de Movimiento"
+              name="tipo"
+              value={filters.tipo}
               onChange={handleFilterChange}
               options={[
                 { value: 'todos', label: 'Todos' },
-                { value: 'RENTAS', label: 'RENTAS' },
-                { value: 'CAJA', label: 'CAJA' },
+                { value: 'INGRESO', label: 'INGRESO' },
+                { value: 'EGRESO', label: 'EGRESO' },
               ]}
-              className="w-36"
+              className="w-48"
             />
-            <Button variant="primary" icon={Search} size="md" className="w-24">
-              Filtrar
-            </Button>
             <Button variant="outline" icon={X} size="md" onClick={handleClearFilters} className="w-24">
               Limpiar
             </Button>

@@ -59,18 +59,34 @@ function parsearFecha(fechaStr: string): string {
 }
 
 /**
- * Limpiar número en formato argentino: 1094165,58 → 1094165.58
+ * Limpiar número en múltiples formatos:
+ * - Formato argentino: 1.094.165,58 → 1094165.58
+ * - Formato internacional: 1,094,165.58 → 1094165.58
+ * - Formato simple: 1094165.58 → 1094165.58
  */
 function limpiarNumero(valor: string): number {
   if (!valor || valor.trim() === '' || valor.trim() === '-') {
     return 0;
   }
 
-  // Remover espacios y puntos (separadores de miles)
-  let limpio = valor.replace(/[\s.]/g, '').trim();
+  let limpio = valor.replace(/\s/g, '').trim();
 
-  // Reemplazar coma por punto (decimal)
-  limpio = limpio.replace(',', '.');
+  // Detectar el formato según el separador decimal
+  const tieneComaDecimal = /,\d{1,2}$/.test(limpio); // Termina en ,XX o ,X
+  const tienePuntoDecimal = /\.\d{1,2}$/.test(limpio); // Termina en .XX o .X
+
+  if (tieneComaDecimal) {
+    // Formato argentino: 1.234,56
+    // Remover puntos (separadores de miles) y reemplazar coma por punto
+    limpio = limpio.replace(/\./g, '').replace(',', '.');
+  } else if (tienePuntoDecimal) {
+    // Formato internacional: 1,234.56 o 1234.56
+    // Remover comas (separadores de miles), el punto ya es decimal
+    limpio = limpio.replace(/,/g, '');
+  } else {
+    // Sin decimales o formato ambiguo: remover todo excepto dígitos
+    limpio = limpio.replace(/[^\d]/g, '');
+  }
 
   const numero = parseFloat(limpio);
   if (isNaN(numero)) {
@@ -101,39 +117,58 @@ export function procesarMovimientosCSV(contenido: string): MovimientoImport[] {
     }
 
     try {
-      // RUBRO (campos[0]) - se ignora
+      // RUBRO (campos[0]) - determina el concepto del movimiento
+      const rubro = campos[0]?.trim().toUpperCase();
       const fechaEgreso = campos[1]?.trim();
       const gasto = campos[2]?.trim();
-      const gastoDecimal = campos[3]?.trim(); // parte decimal del gasto
-      // Total (campos[4]) - se ignora, es para verificación
-      const deposito = campos[5]?.trim();
-      const depositoDecimal = campos[6]?.trim(); // parte decimal del deposito
-      const fechaIngreso = campos[7]?.trim();
+      // Total (campos[3]) - se ignora, es el saldo acumulado
+      const deposito = campos[4]?.trim();
+      const fechaIngreso = campos[5]?.trim();
 
-      // Si hay GASTO, crear egreso
+      // Determinar concepto según el rubro
+      let conceptoEgreso = 'Gastos del día';
+      let conceptoIngreso = 'Depósito';
+
+      if (rubro === 'CAJA') {
+        conceptoEgreso = 'Gastos de CAJA';
+        conceptoIngreso = 'Depósito CAJA';
+      } else if (rubro === 'RENTAS') {
+        conceptoEgreso = 'Gastos de RENTAS';
+        conceptoIngreso = 'Depósito RENTAS';
+      }
+
+      // IMPORTANTE: Crear primero INGRESOS, luego EGRESOS
+      // Esto evita saldos negativos cuando hay depósito y gasto el mismo día
+
+      // Si hay DEPOSITO, crear ingreso PRIMERO
+      if (deposito && deposito !== '' && deposito !== '0') {
+        const montoDeposito = limpiarNumero(deposito);
+
+        if (montoDeposito > 0) {
+          // Si no hay fecha de ingreso, usar la fecha de egreso
+          const fechaParaIngreso = fechaIngreso && fechaIngreso !== '' ? fechaIngreso : fechaEgreso;
+
+          if (fechaParaIngreso && fechaParaIngreso !== '') {
+            movimientos.push({
+              fecha: parsearFecha(fechaParaIngreso),
+              tipo_movimiento: 'INGRESO',
+              concepto: conceptoIngreso,
+              monto: montoDeposito,
+            });
+          }
+        }
+      }
+
+      // Si hay GASTO, crear egreso DESPUÉS
       if (gasto && gasto !== '' && gasto !== '0') {
-        const montoGasto = limpiarNumero(`${gasto}${gastoDecimal ? ',' + gastoDecimal : ''}`);
+        const montoGasto = limpiarNumero(gasto);
 
         if (montoGasto > 0 && fechaEgreso && fechaEgreso !== '') {
           movimientos.push({
             fecha: parsearFecha(fechaEgreso),
             tipo_movimiento: 'EGRESO',
-            concepto: 'Gastos del día',
+            concepto: conceptoEgreso,
             monto: montoGasto,
-          });
-        }
-      }
-
-      // Si hay DEPOSITO, crear ingreso
-      if (deposito && deposito !== '' && deposito !== '0') {
-        const montoDeposito = limpiarNumero(`${deposito}${depositoDecimal ? ',' + depositoDecimal : ''}`);
-
-        if (montoDeposito > 0 && fechaIngreso && fechaIngreso !== '') {
-          movimientos.push({
-            fecha: parsearFecha(fechaIngreso),
-            tipo_movimiento: 'INGRESO',
-            concepto: 'Depósito',
-            monto: montoDeposito,
           });
         }
       }
