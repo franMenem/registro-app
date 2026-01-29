@@ -45,7 +45,7 @@ export class ControlSemanalService implements IControlService {
    */
   getControles(filters?: { conceptoId?: number; pagado?: boolean }): any[] {
     let query = `
-      SELECT cs.*, c.nombre as concepto_nombre
+      SELECT cs.*, c.nombre as concepto_nombre, c.tipo as concepto_tipo
       FROM controles_semanales cs
       JOIN conceptos c ON cs.concepto_id = c.id
       WHERE 1=1
@@ -77,6 +77,41 @@ export class ControlSemanalService implements IControlService {
        SET pagado = 1, fecha_pago_real = ?
        WHERE id = ?`
     ).run(fechaPago, controlId);
+  }
+
+  /**
+   * Desmarca un control como pagado (vuelve a pendiente)
+   */
+  desmarcarComoPagado(controlId: number): void {
+    db.prepare(
+      `UPDATE controles_semanales
+       SET pagado = 0, fecha_pago_real = NULL
+       WHERE id = ?`
+    ).run(controlId);
+  }
+
+  /**
+   * Actualiza el monto de un control semanal
+   */
+  actualizarMonto(controlId: number, nuevoMonto: number): void {
+    db.prepare(
+      `UPDATE controles_semanales
+       SET total_recaudado = ?
+       WHERE id = ?`
+    ).run(nuevoMonto, controlId);
+  }
+
+  /**
+   * Elimina un control semanal
+   */
+  eliminar(controlId: number): void {
+    const control = db.prepare('SELECT * FROM controles_semanales WHERE id = ?').get(controlId);
+
+    if (!control) {
+      throw new Error('Control no encontrado');
+    }
+
+    db.prepare('DELETE FROM controles_semanales WHERE id = ?').run(controlId);
   }
 }
 

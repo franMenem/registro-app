@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import cuentasService from '../services/cuentas.service';
+import cuentasCorrientesImportService from '../services/cuentas-corrientes-import.service';
 
 export class CuentasController {
   /**
@@ -96,6 +97,105 @@ export class CuentasController {
       });
     } catch (error: any) {
       res.status(400).json({ message: error.message });
+    }
+  }
+
+  /**
+   * PUT /api/cuentas/movimientos/:movimientoId
+   */
+  async updateMovimiento(req: Request, res: Response) {
+    try {
+      const movimientoId = parseInt(req.params.movimientoId);
+      const { monto, concepto } = req.body;
+
+      // Validaciones
+      if (monto !== undefined && monto <= 0) {
+        return res.status(400).json({
+          message: 'El monto debe ser mayor a 0',
+        });
+      }
+
+      await cuentasService.actualizarMovimiento(movimientoId, { monto, concepto });
+
+      res.json({
+        message: 'Movimiento actualizado exitosamente',
+      });
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  }
+
+  /**
+   * DELETE /api/cuentas/movimientos/:movimientoId
+   */
+  async deleteMovimiento(req: Request, res: Response) {
+    try {
+      const movimientoId = parseInt(req.params.movimientoId);
+
+      await cuentasService.eliminarMovimiento(movimientoId);
+
+      res.json({
+        message: 'Movimiento eliminado exitosamente',
+      });
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  }
+
+  /**
+   * POST /api/cuentas/:id/importar
+   * Importa movimientos desde CSV
+   */
+  async importarCSV(req: Request, res: Response) {
+    try {
+      const id = parseInt(req.params.id);
+      const { contenido } = req.body;
+
+      if (!contenido || typeof contenido !== 'string') {
+        return res.status(400).json({
+          success: false,
+          message: 'Debe proporcionar el contenido del CSV',
+        });
+      }
+
+      const resultado = cuentasCorrientesImportService.importarMovimientosCSV(id, contenido);
+
+      res.json({
+        success: true,
+        message: `Importación completada: ${resultado.insertados} movimientos insertados`,
+        insertados: resultado.insertados,
+        errores: resultado.errores,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Error al importar movimientos',
+      });
+    }
+  }
+
+  /**
+   * DELETE /api/cuentas/:id/limpiar
+   * Limpia todos los movimientos de una cuenta corriente
+   */
+  async limpiarCuenta(req: Request, res: Response) {
+    try {
+      const id = parseInt(req.params.id);
+
+      // Necesitamos importar el servicio correcto
+      const cuentasCorrientesService = require('../services/cuentas-corrientes.service').default;
+      const resultado = cuentasCorrientesService.limpiarCuenta(id);
+
+      res.json({
+        success: true,
+        message: `Cuenta limpiada correctamente: ${resultado.movimientos_eliminados} movimientos eliminados`,
+        movimientos_eliminados: resultado.movimientos_eliminados,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Error al limpiar la cuenta',
+      });
     }
   }
 }

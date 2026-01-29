@@ -7,7 +7,10 @@
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "db:init": "ts-node src/db/init.ts"
+    "db:init": "ts-node src/db/init.ts",
+    "db:clean": "ts-node src/scripts/limpiar-datos.ts",
+    "parse:posnet": "ts-node src/scripts/parse-posnet-raw.ts",
+    "migrate:posnet": "ts-node src/scripts/migrate-posnet.ts"
   },
   "keywords": [],
   "author": "",

@@ -1,0 +1,32 @@
+[
+  {
+    "fecha": "2026-01-15",
+    "monto_rentas": 12500.50,
+    "monto_caja": 8300.00,
+    "monto_ingresado_banco": 20800.50
+  },
+  {
+    "fecha": "2026-01-16",
+    "monto_rentas": 15200.00,
+    "monto_caja": 9450.75,
+    "monto_ingresado_banco": 24650.75
+  },
+  {
+    "fecha": "2026-01-17",
+    "monto_rentas": 13800.25,
+    "monto_caja": 7890.00,
+    "monto_ingresado_banco": 21690.25
+  },
+  {
+    "fecha": "2026-01-18",
+    "monto_rentas": 11200.00,
+    "monto_caja": 6500.50,
+    "monto_ingresado_banco": 17700.50
+  },
+  {
+    "fecha": "2026-01-19",
+    "monto_rentas": 14500.75,
+    "monto_caja": 8200.25,
+    "monto_ingresado_banco": 22701.00
+  }
+]

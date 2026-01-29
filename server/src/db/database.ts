@@ -19,13 +19,13 @@ export const initDatabase = () => {
     console.log('Initializing database...');
 
     // Execute schema
-    const schemaPath = path.join(__dirname, 'schema.sql');
+    const schemaPath = path.join(__dirname, '../../src/db/schema.sql');
     const schema = fs.readFileSync(schemaPath, 'utf8');
     db.exec(schema);
     console.log('✓ Schema created');
 
     // Execute seed
-    const seedPath = path.join(__dirname, 'seed.sql');
+    const seedPath = path.join(__dirname, '../../src/db/seed.sql');
     const seed = fs.readFileSync(seedPath, 'utf8');
     db.exec(seed);
     console.log('✓ Seed data loaded');

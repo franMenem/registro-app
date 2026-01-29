@@ -5,9 +5,14 @@ import {
   Wallet,
   Banknote,
   Landmark,
+  DollarSign,
   FileSpreadsheet,
+  ShoppingCart,
+  User,
+  Users,
   BarChart2,
   Settings,
+  History,
 } from 'lucide-react';
 
 interface NavItem {
@@ -24,12 +29,12 @@ const navItems: NavItem[] = [
   },
   {
     path: '/rentas',
-    label: 'RENTAS',
+    label: 'Rentas',
     icon: <Wallet className="h-5 w-5" />,
   },
   {
     path: '/caja',
-    label: 'CAJA',
+    label: 'Caja',
     icon: <Banknote className="h-5 w-5" />,
   },
   {
@@ -38,9 +43,44 @@ const navItems: NavItem[] = [
     icon: <Landmark className="h-5 w-5" />,
   },
   {
+    path: '/depositos',
+    label: 'Depósitos',
+    icon: <DollarSign className="h-5 w-5" />,
+  },
+  {
+    path: '/gastos-registro',
+    label: 'Gastos Registro',
+    icon: <ShoppingCart className="h-5 w-5" />,
+  },
+  {
+    path: '/gastos-personales',
+    label: 'Gastos Personales',
+    icon: <User className="h-5 w-5" />,
+  },
+  {
+    path: '/posnet-diario',
+    label: 'Control POSNET',
+    icon: <BarChart2 className="h-5 w-5" />,
+  },
+  {
+    path: '/formularios',
+    label: 'Formularios',
+    icon: <FileSpreadsheet className="h-5 w-5" />,
+  },
+  {
+    path: '/clientes',
+    label: 'Clientes',
+    icon: <Users className="h-5 w-5" />,
+  },
+  {
     path: '/planillas',
     label: 'Planillas',
     icon: <FileSpreadsheet className="h-5 w-5" />,
+  },
+  {
+    path: '/historial',
+    label: 'Historial',
+    icon: <History className="h-5 w-5" />,
   },
   {
     path: '/reportes',

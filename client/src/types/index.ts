@@ -61,6 +61,8 @@ export interface ControlSemanal {
   pagado: boolean;
   fecha_pago_real?: string;
   created_at: string;
+  concepto_nombre: string;
+  concepto_tipo: TipoMovimiento;
   concepto?: Concepto;
 }
 
@@ -77,6 +79,8 @@ export interface ControlQuincenal {
   pagado: boolean;
   fecha_pago_real?: string;
   created_at: string;
+  concepto_nombre: string;
+  concepto_tipo: TipoMovimiento;
   concepto?: Concepto;
 }
 
@@ -93,12 +97,70 @@ export interface ControlPOSNET {
 export interface DashboardStats {
   total_rentas_hoy: number;
   total_caja_hoy: number;
-  movimientos_count: number;
+  total_semanal_pendiente: number;
+  total_quincenal_pendiente: number;
   alertas_pagos: number;
+}
+
+export interface ControlPendiente {
+  id: number;
+  concepto_id: number;
+  concepto_nombre: string;
+  concepto_tipo: TipoMovimiento;
+  frecuencia: 'SEMANAL' | 'QUINCENAL';
+  fecha_inicio: string;
+  fecha_fin: string;
+  total_recaudado: number;
+  fecha_pago_programada: string;
+  pagado: boolean;
+  fecha_pago_real?: string;
+  quincena?: Quincena;
+  mes?: number;
+  anio?: number;
 }
 
 export interface ApiResponse<T> {
   data: T;
   message?: string;
   alertas?: string[];
+}
+
+export type EstadoDeposito = 'PENDIENTE' | 'LIQUIDADO' | 'A_FAVOR' | 'A_CUENTA' | 'DEVUELTO';
+export type TipoUsoDeposito = 'CAJA' | 'RENTAS' | 'A_CUENTA' | 'DEVUELTO';
+
+export interface Deposito {
+  id: number;
+  monto_original: number;
+  saldo_actual: number;
+  fecha_ingreso: string;
+  fecha_uso: string | null;
+  fecha_devolucion: string | null;
+  estado: EstadoDeposito;
+  tipo_uso: TipoUsoDeposito | null;
+  descripcion_uso: string | null;
+  monto_devuelto: number;
+  titular: string;
+  observaciones: string | null;
+  cuenta_id: number | null;
+  cuenta_nombre?: string;
+  movimiento_origen_id: number | null;
+  created_at: string;
+}
+
+export interface DepositoCreate {
+  monto_original: number;
+  fecha_ingreso: string;
+  titular: string;
+  observaciones?: string;
+  cuenta_id?: number;
+}
+
+export interface DepositoEstadisticas {
+  total: number;
+  pendientes: number;
+  liquidados: number;
+  a_favor: number;
+  a_cuenta: number;
+  devueltos: number;
+  saldo_total_disponible: number;
 }

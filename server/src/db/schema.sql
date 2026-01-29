@@ -1,3 +1,21 @@
+-- ========================================
+-- CLIENTES
+-- ========================================
+CREATE TABLE IF NOT EXISTS clientes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  cuit TEXT NOT NULL UNIQUE,
+  razon_social TEXT NOT NULL,
+  email TEXT,
+  telefono TEXT,
+  direccion TEXT,
+  observaciones TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Índice para búsqueda rápida por CUIT
+CREATE INDEX IF NOT EXISTS idx_clientes_cuit ON clientes(cuit);
+
 -- Conceptos (GIT, SUAT, ARBA, etc.)
 CREATE TABLE IF NOT EXISTS conceptos (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -97,26 +115,128 @@ CREATE TABLE IF NOT EXISTS control_posnet (
   UNIQUE(mes, anio)
 );
 
--- Gastos mensuales registro (Librería, María, Agua, etc.)
-CREATE TABLE IF NOT EXISTS gastos_mensuales (
+-- Control POSNET diario (Fase 2)
+CREATE TABLE IF NOT EXISTS control_posnet_diario (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  nombre TEXT NOT NULL,
+  fecha DATE NOT NULL UNIQUE,
+  monto_rentas DECIMAL(12,2) DEFAULT 0,
+  monto_caja DECIMAL(12,2) DEFAULT 0,
+  total_posnet DECIMAL(12,2) DEFAULT 0,
+  monto_ingresado_banco DECIMAL(12,2) DEFAULT 0,
+  diferencia DECIMAL(12,2) DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Formularios (Fase 3)
+CREATE TABLE IF NOT EXISTS formularios (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  numero TEXT NOT NULL UNIQUE,
+  descripcion TEXT,
   monto DECIMAL(12,2) NOT NULL,
-  mes INTEGER NOT NULL,
-  anio INTEGER NOT NULL,
-  pagado BOOLEAN DEFAULT 0,
-  fecha_pago DATE,
+  fecha_compra DATE NOT NULL,
+  proveedor TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- Adelantos empleados
-CREATE TABLE IF NOT EXISTS adelantos_empleados (
+-- Vencimientos de formularios (3 por formulario)
+CREATE TABLE IF NOT EXISTS formularios_vencimientos (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  empleado_nombre TEXT NOT NULL,
+  formulario_id INTEGER NOT NULL,
+  numero_vencimiento INTEGER NOT NULL CHECK(numero_vencimiento IN (1, 2, 3)),
+  fecha_vencimiento DATE NOT NULL,
   monto DECIMAL(12,2) NOT NULL,
+  estado TEXT DEFAULT 'PENDIENTE' CHECK(estado IN ('PENDIENTE', 'PAGADO')),
+  fecha_pago DATE,
+  gasto_registral_id INTEGER,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (formulario_id) REFERENCES formularios(id) ON DELETE CASCADE,
+  FOREIGN KEY (gasto_registral_id) REFERENCES gastos_registrales(id),
+  UNIQUE(formulario_id, numero_vencimiento)
+);
+
+-- Gastos Registrales (Sistema completo de 25 conceptos mensuales)
+CREATE TABLE IF NOT EXISTS gastos_registrales (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
   fecha DATE NOT NULL,
-  mes_descuento INTEGER NOT NULL,
-  anio_descuento INTEGER NOT NULL,
-  descontado BOOLEAN DEFAULT 0,
+  concepto TEXT NOT NULL,
+  monto DECIMAL(12,2) NOT NULL,
+  observaciones TEXT,
+  origen TEXT DEFAULT 'MANUAL', -- 'MANUAL', 'CAJA', 'FORMULARIOS'
+  estado TEXT DEFAULT 'Pagado', -- 'Pagado', 'Pendiente'
+  -- Campos especiales para ABL (3 boletas) y AYSA (4 boletas)
+  boleta1 DECIMAL(12,2) DEFAULT 0,
+  boleta2 DECIMAL(12,2) DEFAULT 0,
+  boleta3 DECIMAL(12,2) DEFAULT 0,
+  boleta4 DECIMAL(12,2) DEFAULT 0,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Índices para Gastos Registrales
+CREATE INDEX IF NOT EXISTS idx_gastos_registrales_fecha ON gastos_registrales(fecha);
+CREATE INDEX IF NOT EXISTS idx_gastos_registrales_concepto ON gastos_registrales(concepto);
+CREATE INDEX IF NOT EXISTS idx_gastos_registrales_estado ON gastos_registrales(estado);
+
+-- Adelantos empleados (Actualizado con más campos)
+CREATE TABLE IF NOT EXISTS adelantos_empleados (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  empleado TEXT NOT NULL, -- 'DAMI', 'MUMI'
+  fecha_adelanto DATE NOT NULL,
+  monto DECIMAL(12,2) NOT NULL,
+  estado TEXT DEFAULT 'Pendiente', -- 'Pendiente', 'Descontado'
+  fecha_descuento DATE,
+  observaciones TEXT,
+  origen TEXT DEFAULT 'MANUAL', -- 'MANUAL', 'CAJA'
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Índices para Adelantos
+CREATE INDEX IF NOT EXISTS idx_adelantos_empleado ON adelantos_empleados(empleado);
+CREATE INDEX IF NOT EXISTS idx_adelantos_estado ON adelantos_empleados(estado);
+
+-- Depósitos
+CREATE TABLE IF NOT EXISTS depositos (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  monto_original DECIMAL(12,2) NOT NULL,
+  saldo_actual DECIMAL(12,2) NOT NULL,
+  fecha_ingreso DATE NOT NULL,
+  fecha_uso DATE,
+  fecha_devolucion DATE,
+  estado TEXT NOT NULL CHECK(estado IN ('PENDIENTE', 'LIQUIDADO', 'A_FAVOR', 'A_CUENTA', 'DEVUELTO')) DEFAULT 'PENDIENTE',
+  tipo_uso TEXT CHECK(tipo_uso IN ('CAJA', 'RENTAS', 'A_CUENTA', 'DEVUELTO')),
+  descripcion_uso TEXT,
+  monto_devuelto DECIMAL(12,2) DEFAULT 0,
+  titular TEXT NOT NULL,
+  observaciones TEXT,
+  cuenta_id INTEGER,
+  movimiento_origen_id INTEGER,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (cuenta_id) REFERENCES cuentas_corrientes(id),
+  FOREIGN KEY (movimiento_origen_id) REFERENCES movimientos(id)
+);
+
+-- Índices para depósitos
+CREATE INDEX IF NOT EXISTS idx_depositos_estado ON depositos(estado);
+CREATE INDEX IF NOT EXISTS idx_depositos_fecha_ingreso ON depositos(fecha_ingreso);
+CREATE INDEX IF NOT EXISTS idx_depositos_cuenta ON depositos(cuenta_id);
+
+-- ========================================
+-- GASTOS PERSONALES (JEFA)
+-- ========================================
+-- 5 conceptos: Gaspar, Nacion, Efectivo, Patagonia, Credicoop
+CREATE TABLE IF NOT EXISTS gastos_personales (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  fecha DATE NOT NULL,
+  concepto TEXT NOT NULL CHECK(concepto IN ('Gaspar', 'Nacion', 'Efectivo', 'Patagonia', 'Credicoop')),
+  monto DECIMAL(12,2) NOT NULL,
+  observaciones TEXT,
+  estado TEXT DEFAULT 'Pagado' CHECK(estado IN ('Pagado', 'Pendiente')),
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Índices para gastos personales
+CREATE INDEX IF NOT EXISTS idx_gastos_personales_fecha ON gastos_personales(fecha);
+CREATE INDEX IF NOT EXISTS idx_gastos_personales_concepto ON gastos_personales(concepto);
+CREATE INDEX IF NOT EXISTS idx_gastos_personales_estado ON gastos_personales(estado);

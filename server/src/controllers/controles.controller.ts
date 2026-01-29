@@ -102,6 +102,118 @@ export class ControlesController {
       res.status(400).json({ message: error.message });
     }
   }
+
+  /**
+   * PUT /api/controles/semanales/:id/desmarcar-pago
+   */
+  async desmarcarPagoSemanal(req: Request, res: Response) {
+    try {
+      const id = parseInt(req.params.id);
+
+      controlSemanalService.desmarcarComoPagado(id);
+
+      res.json({
+        message: 'Control desmarcado como no pagado exitosamente',
+      });
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  }
+
+  /**
+   * PUT /api/controles/quincenales/:id/desmarcar-pago
+   */
+  async desmarcarPagoQuincenal(req: Request, res: Response) {
+    try {
+      const id = parseInt(req.params.id);
+
+      controlQuincenalService.desmarcarComoPagado(id);
+
+      res.json({
+        message: 'Control desmarcado como no pagado exitosamente',
+      });
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  }
+
+  /**
+   * PUT /api/controles/semanales/:id/monto
+   */
+  async actualizarMontoSemanal(req: Request, res: Response) {
+    try {
+      const id = parseInt(req.params.id);
+      const { monto } = req.body;
+
+      if (monto === undefined || monto < 0) {
+        return res.status(400).json({ message: 'Monto inválido' });
+      }
+
+      controlSemanalService.actualizarMonto(id, monto);
+
+      res.json({
+        message: 'Monto actualizado exitosamente',
+      });
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  }
+
+  /**
+   * PUT /api/controles/quincenales/:id/monto
+   */
+  async actualizarMontoQuincenal(req: Request, res: Response) {
+    try {
+      const id = parseInt(req.params.id);
+      const { monto } = req.body;
+
+      if (monto === undefined || monto < 0) {
+        return res.status(400).json({ message: 'Monto inválido' });
+      }
+
+      controlQuincenalService.actualizarMonto(id, monto);
+
+      res.json({
+        message: 'Monto actualizado exitosamente',
+      });
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  }
+
+  /**
+   * DELETE /api/controles/semanales/:id
+   */
+  async eliminarSemanal(req: Request, res: Response) {
+    try {
+      const id = parseInt(req.params.id);
+
+      controlSemanalService.eliminar(id);
+
+      res.json({
+        message: 'Control eliminado exitosamente',
+      });
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  }
+
+  /**
+   * DELETE /api/controles/quincenales/:id
+   */
+  async eliminarQuincenal(req: Request, res: Response) {
+    try {
+      const id = parseInt(req.params.id);
+
+      controlQuincenalService.eliminar(id);
+
+      res.json({
+        message: 'Control eliminado exitosamente',
+      });
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  }
 }
 
 export default new ControlesController();

@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import movimientosService from '../services/movimientos.service';
+import { importarMovimientosCSV } from '../services/movimientos-import.service';
 import db from '../db/database';
 
 export class MovimientosController {
@@ -124,6 +125,84 @@ export class MovimientosController {
       });
     } catch (error: any) {
       res.status(400).json({ message: error.message });
+    }
+  }
+
+  /**
+   * POST /api/movimientos/rentas-diario
+   */
+  async createRentasDiario(req: Request, res: Response) {
+    try {
+      const { fecha, values, entregado } = req.body;
+
+      if (!fecha || !values) {
+        return res.status(400).json({
+          message: 'Campos requeridos: fecha, values',
+        });
+      }
+
+      const result = await movimientosService.crearRentasDiario(fecha, values, entregado);
+
+      res.status(201).json({
+        message: `Registro RENTAS guardado exitosamente. ${result.totalMovimientos} movimientos creados.`,
+        data: result,
+      });
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  }
+
+  /**
+   * POST /api/movimientos/caja-diario
+   */
+  async createCajaDiario(req: Request, res: Response) {
+    try {
+      const { fecha, values, entregado } = req.body;
+
+      if (!fecha || !values) {
+        return res.status(400).json({
+          message: 'Campos requeridos: fecha, values',
+        });
+      }
+
+      const result = await movimientosService.crearCajaDiario(fecha, values, entregado);
+
+      res.status(201).json({
+        message: `Registro CAJA guardado exitosamente. ${result.totalMovimientos} movimientos creados.`,
+        data: result,
+      });
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  }
+
+  /**
+   * POST /api/movimientos/import
+   * Importa movimientos desde CSV
+   */
+  async importarCSV(req: Request, res: Response) {
+    try {
+      const { contenido } = req.body;
+
+      if (!contenido || typeof contenido !== 'string') {
+        return res.status(400).json({
+          success: false,
+          message: 'Contenido del CSV no proporcionado'
+        });
+      }
+
+      const resultado = importarMovimientosCSV(contenido);
+
+      res.json({
+        success: true,
+        message: 'Importación completada',
+        data: resultado,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Error al importar CSV',
+      });
     }
   }
 }

@@ -103,6 +103,104 @@ export class CuentasService {
 
     return db.prepare(query).all(...params);
   }
+
+  /**
+   * Actualiza un movimiento de cuenta corriente
+   * Recalcula todos los saldos posteriores
+   */
+  async actualizarMovimiento(
+    movimientoId: number,
+    datos: { monto?: number; concepto?: string }
+  ): Promise<void> {
+    // Obtener el movimiento actual
+    const movimiento = db
+      .prepare('SELECT * FROM movimientos_cc WHERE id = ?')
+      .get(movimientoId) as any;
+
+    if (!movimiento) {
+      throw new Error('Movimiento no encontrado');
+    }
+
+    // Si solo se actualiza el concepto, no hay que recalcular saldos
+    if (datos.concepto && !datos.monto) {
+      db.prepare('UPDATE movimientos_cc SET concepto = ? WHERE id = ?').run(
+        datos.concepto,
+        movimientoId
+      );
+      return;
+    }
+
+    // Si se actualiza el monto, hay que recalcular todos los saldos
+    if (datos.monto !== undefined) {
+      // Actualizar el movimiento
+      db.prepare('UPDATE movimientos_cc SET monto = ?, concepto = ? WHERE id = ?').run(
+        datos.monto,
+        datos.concepto || movimiento.concepto,
+        movimientoId
+      );
+
+      // Recalcular saldos desde este movimiento en adelante
+      this.recalcularSaldos(movimiento.cuenta_id);
+    }
+  }
+
+  /**
+   * Elimina un movimiento de cuenta corriente
+   * Recalcula todos los saldos posteriores
+   */
+  async eliminarMovimiento(movimientoId: number): Promise<void> {
+    // Obtener el movimiento
+    const movimiento = db
+      .prepare('SELECT * FROM movimientos_cc WHERE id = ?')
+      .get(movimientoId) as any;
+
+    if (!movimiento) {
+      throw new Error('Movimiento no encontrado');
+    }
+
+    // Eliminar el movimiento
+    db.prepare('DELETE FROM movimientos_cc WHERE id = ?').run(movimientoId);
+
+    // Recalcular saldos
+    this.recalcularSaldos(movimiento.cuenta_id);
+  }
+
+  /**
+   * Recalcula todos los saldos de una cuenta desde el principio
+   */
+  private recalcularSaldos(cuentaId: number): void {
+    // Obtener todos los movimientos ordenados cronológicamente
+    const movimientos = db
+      .prepare(
+        `SELECT * FROM movimientos_cc
+         WHERE cuenta_id = ?
+         ORDER BY fecha ASC, id ASC`
+      )
+      .all(cuentaId) as any[];
+
+    let saldoActual = 0;
+
+    // Recalcular cada saldo
+    for (const mov of movimientos) {
+      if (mov.tipo_movimiento === 'INGRESO') {
+        saldoActual += mov.monto;
+      } else {
+        saldoActual -= mov.monto;
+      }
+
+      // Actualizar saldo del movimiento
+      db.prepare('UPDATE movimientos_cc SET saldo_resultante = ? WHERE id = ?').run(
+        saldoActual,
+        mov.id
+      );
+    }
+
+    // Actualizar saldo actual de la cuenta
+    db.prepare('UPDATE cuentas_corrientes SET saldo_actual = ? WHERE id = ?').run(
+      saldoActual,
+      cuentaId
+    );
+  }
 }
 
 export default new CuentasService();

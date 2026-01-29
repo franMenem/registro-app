@@ -1,5 +1,6 @@
 import db from '../db/database';
 import { obtenerMesAnio } from '../utils/fechas.util';
+import posnetDiarioService from './posnet-diario.service';
 
 /**
  * Servicio para control POSNET mensual
@@ -8,12 +9,13 @@ import { obtenerMesAnio } from '../utils/fechas.util';
  */
 export class ControlPOSNETService {
   /**
-   * Actualiza el control POSNET mensual
+   * Actualiza el control POSNET mensual y diario
    * Solo registra, no calcula pagos automáticos
    */
   async actualizarControl(fecha: Date, monto: number, tipo: 'RENTAS' | 'CAJA'): Promise<void> {
     const { mes, anio } = obtenerMesAnio(fecha);
 
+    // 1. Actualizar control mensual
     // Buscar control existente
     const controlExistente = db
       .prepare(
@@ -43,6 +45,20 @@ export class ControlPOSNETService {
          VALUES (?, ?, ?, ?, ?)`
       ).run(mes, anio, totalRentas, totalCaja, monto);
     }
+
+    // 2. Actualizar control diario (Fase 2)
+    const fechaStr = this.formatearFecha(fecha);
+    posnetDiarioService.actualizarMontosFormulario(fechaStr, tipo, monto);
+  }
+
+  /**
+   * Formatea fecha a YYYY-MM-DD
+   */
+  private formatearFecha(fecha: Date): string {
+    const anio = fecha.getFullYear();
+    const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+    const dia = String(fecha.getDate()).padStart(2, '0');
+    return `${anio}-${mes}-${dia}`;
   }
 
   /**

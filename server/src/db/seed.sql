@@ -29,4 +29,13 @@ INSERT OR IGNORE INTO cuentas_corrientes (nombre, tipo, saldo_actual) VALUES
 ('Librería', 'GASTOS_REGISTRO', 0),
 ('María', 'GASTOS_REGISTRO', 0),
 ('Agua', 'GASTOS_REGISTRO', 0),
-('Edesur', 'GASTOS_REGISTRO', 0);
+('Edesur', 'GASTOS_REGISTRO', 0),
+-- Cuentas corrientes de gastos RENTAS
+('ICBC', 'RENTAS', 0),
+('FORD', 'RENTAS', 0),
+('SICARDI', 'RENTAS', 0),
+('PATAGONIA', 'RENTAS', 0),
+('IVECO', 'RENTAS', 0),
+('CNH', 'RENTAS', 0),
+('GESTORIA FORD', 'RENTAS', 0),
+('ALRA', 'RENTAS', 0);

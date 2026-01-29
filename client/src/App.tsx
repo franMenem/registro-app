@@ -5,7 +5,14 @@ import Dashboard from './pages/Dashboard';
 import FormularioRentas from './pages/FormularioRentas';
 import FormularioCaja from './pages/FormularioCaja';
 import CuentasCorrientes from './pages/CuentasCorrientes';
+import Depositos from './pages/Depositos';
+import GastosRegistro from './pages/GastosRegistro';
+import GastosPersonales from './pages/GastosPersonales';
+import ControlPosnetDiario from './pages/ControlPosnetDiario';
+import Formularios from './pages/Formularios';
+import Clientes from './pages/Clientes';
 import Planillas from './pages/Planillas';
+import HistorialMovimientos from './pages/HistorialMovimientos';
 import Reportes from './pages/Reportes';
 import Configuracion from './pages/Configuracion';
 
@@ -18,7 +25,14 @@ function App() {
           <Route path="rentas" element={<FormularioRentas />} />
           <Route path="caja" element={<FormularioCaja />} />
           <Route path="cuentas" element={<CuentasCorrientes />} />
+          <Route path="depositos" element={<Depositos />} />
+          <Route path="gastos-registro" element={<GastosRegistro />} />
+          <Route path="gastos-personales" element={<GastosPersonales />} />
+          <Route path="posnet-diario" element={<ControlPosnetDiario />} />
+          <Route path="formularios" element={<Formularios />} />
+          <Route path="clientes" element={<Clientes />} />
           <Route path="planillas" element={<Planillas />} />
+          <Route path="historial" element={<HistorialMovimientos />} />
           <Route path="reportes" element={<Reportes />} />
           <Route path="configuracion" element={<Configuracion />} />
         </Route>
