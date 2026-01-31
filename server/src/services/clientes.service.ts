@@ -195,6 +195,17 @@ export class ClientesService {
         );
       }
 
+      // Verificar si tiene depósitos asociados
+      const depositos = db
+        .prepare('SELECT COUNT(*) as count FROM depositos WHERE cliente_id = ?')
+        .get(id) as { count: number };
+
+      if (depositos.count > 0) {
+        throw new Error(
+          `No se puede eliminar el cliente porque tiene ${depositos.count} depósito(s) asociado(s)`
+        );
+      }
+
       db.prepare('DELETE FROM clientes WHERE id = ?').run(id);
     });
   }
@@ -214,6 +225,52 @@ export class ClientesService {
       `
       )
       .all(searchTerm, searchTerm) as Cliente[];
+  }
+
+  /**
+   * Obtener un cliente con sus depósitos
+   */
+  obtenerConDepositos(id: number): any {
+    const cliente = this.obtenerPorId(id);
+    if (!cliente) return null;
+
+    const depositos = db.prepare(
+      `SELECT d.*, cc.nombre as cuenta_nombre
+       FROM depositos d
+       LEFT JOIN cuentas_corrientes cc ON d.cuenta_id = cc.id
+       WHERE d.cliente_id = ?
+       ORDER BY d.fecha_ingreso DESC`
+    ).all(id);
+
+    const totalDepositado = depositos.reduce((sum: number, d: any) => sum + d.monto, 0);
+
+    return {
+      ...cliente,
+      depositos,
+      total_depositado: totalDepositado,
+      cantidad_depositos: depositos.length,
+    };
+  }
+
+  /**
+   * Obtener resumen de clientes
+   */
+  obtenerResumen(): any {
+    const total = db.prepare('SELECT COUNT(*) as count FROM clientes').get() as { count: number };
+
+    const conDepositos = db.prepare(
+      'SELECT COUNT(DISTINCT cliente_id) as count FROM depositos WHERE cliente_id IS NOT NULL'
+    ).get() as { count: number };
+
+    const totalDepositado = db.prepare(
+      'SELECT SUM(monto) as total FROM depositos WHERE cliente_id IS NOT NULL'
+    ).get() as { total: number | null };
+
+    return {
+      total_clientes: total.count,
+      clientes_con_depositos: conDepositos.count,
+      total_depositado: totalDepositado.total || 0,
+    };
   }
 }
 

@@ -16,6 +16,8 @@ export interface Deposito {
   observaciones: string | null;
   cuenta_id: number | null;
   cuenta_nombre?: string;
+  cliente_id: number | null;
+  cliente_nombre?: string;
   movimiento_origen_id: number | null;
   created_at: string;
 }
@@ -26,9 +28,13 @@ export interface DepositoCreate {
   titular: string;
   observaciones?: string;
   cuenta_id?: number;
+  cliente_id?: number;
 }
 
 export interface DepositoUpdate {
+  titular?: string;
+  fecha_ingreso?: string;
+  monto_original?: number;
   saldo_actual?: number;
   fecha_uso?: string;
   fecha_devolucion?: string;
@@ -36,6 +42,7 @@ export interface DepositoUpdate {
   monto_devuelto?: number;
   observaciones?: string;
   cuenta_id?: number;
+  cliente_id?: number;
 }
 
 export interface DepositoFilters {

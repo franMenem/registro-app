@@ -240,3 +240,61 @@ CREATE TABLE IF NOT EXISTS gastos_personales (
 CREATE INDEX IF NOT EXISTS idx_gastos_personales_fecha ON gastos_personales(fecha);
 CREATE INDEX IF NOT EXISTS idx_gastos_personales_concepto ON gastos_personales(concepto);
 CREATE INDEX IF NOT EXISTS idx_gastos_personales_estado ON gastos_personales(estado);
+
+-- ========================================
+-- CONTROL VEPs
+-- ========================================
+CREATE TABLE IF NOT EXISTS control_veps (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  fecha DATE NOT NULL,
+  monto DECIMAL(12,2) NOT NULL,
+  observaciones TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Índices para VEPs
+CREATE INDEX IF NOT EXISTS idx_control_veps_fecha ON control_veps(fecha);
+
+-- ========================================
+-- CONTROL ePAGOS
+-- ========================================
+CREATE TABLE IF NOT EXISTS control_epagos (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  fecha DATE NOT NULL,
+  monto DECIMAL(12,2) NOT NULL,
+  observaciones TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Índices para ePagos
+CREATE INDEX IF NOT EXISTS idx_control_epagos_fecha ON control_epagos(fecha);
+
+-- ========================================
+-- CONTROL DE EFECTIVO
+-- ========================================
+-- Configuración de efectivo (saldo inicial)
+CREATE TABLE IF NOT EXISTS control_efectivo_config (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  saldo_inicial DECIMAL(12,2) NOT NULL DEFAULT 0,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Insertar registro único de configuración
+INSERT OR IGNORE INTO control_efectivo_config (id, saldo_inicial) VALUES (1, 0);
+
+-- Movimientos de efectivo (ingresos, gastos y depósitos)
+CREATE TABLE IF NOT EXISTS movimientos_efectivo (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  fecha DATE NOT NULL,
+  tipo TEXT NOT NULL CHECK(tipo IN ('INGRESO', 'GASTO', 'DEPOSITO')),
+  concepto TEXT NOT NULL,
+  monto DECIMAL(12,2) NOT NULL,
+  cuenta_id INTEGER,
+  observaciones TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (cuenta_id) REFERENCES cuentas_corrientes(id)
+);
+
+-- Índices para movimientos de efectivo
+CREATE INDEX IF NOT EXISTS idx_movimientos_efectivo_fecha ON movimientos_efectivo(fecha);
+CREATE INDEX IF NOT EXISTS idx_movimientos_efectivo_tipo ON movimientos_efectivo(tipo);

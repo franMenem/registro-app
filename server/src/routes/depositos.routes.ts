@@ -6,6 +6,8 @@ const router = Router();
 // Rutas especiales primero (antes de :id)
 router.get('/no-asociados', depositosController.getDepositosNoAsociados.bind(depositosController));
 router.get('/estadisticas', depositosController.getEstadisticas.bind(depositosController));
+router.post('/sincronizar-movimientos', depositosController.sincronizarMovimientos.bind(depositosController));
+router.post('/importar', depositosController.importarCSV.bind(depositosController));
 
 // CRUD básico
 router.get('/', depositosController.getDepositos.bind(depositosController));
@@ -20,5 +22,6 @@ router.put('/:id/a-favor', depositosController.marcarAFavor.bind(depositosContro
 router.put('/:id/devolver', depositosController.devolver.bind(depositosController));
 router.put('/:id/usar-saldo', depositosController.usarSaldo.bind(depositosController));
 router.put('/:id/asociar-cuenta', depositosController.asociarCuenta.bind(depositosController));
+router.post('/:id/desasociar', depositosController.desasociarDeCuenta.bind(depositosController));
 
 export default router;

@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import depositosService from '../services/depositos.service';
+import migracionService from '../services/migracion.service';
+import depositosImportService from '../services/depositos-import.service';
 import { DepositoCreate, DepositoUpdate } from '../types/deposito.types';
 
 export class DepositosController {
@@ -258,6 +260,66 @@ export class DepositosController {
       });
     } catch (error: any) {
       res.status(400).json({ message: error.message });
+    }
+  }
+
+  /**
+   * POST /api/depositos/sincronizar-movimientos
+   * Sincroniza depósitos asignados con movimientos en cuentas corrientes
+   */
+  async sincronizarMovimientos(req: Request, res: Response) {
+    try {
+      const resultado = depositosService.sincronizarMovimientosDepositos();
+
+      res.json({
+        data: resultado,
+        message: `Sincronización completada: ${resultado.procesados} depósitos procesados, ${resultado.movimientos_creados} movimientos creados`,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  }
+
+  /**
+   * POST /api/depositos/importar
+   * Importa depósitos desde CSV
+   */
+  async importarCSV(req: Request, res: Response) {
+    try {
+      const { contenido } = req.body;
+
+      if (!contenido || typeof contenido !== 'string') {
+        return res.status(400).json({
+          message: 'Debe proporcionar el contenido del CSV',
+        });
+      }
+
+      const resultado = depositosImportService.importarDepositosCSV(contenido);
+
+      res.json({
+        data: resultado,
+        message: `Importación completada: ${resultado.insertados} depósitos insertados de ${resultado.procesados} procesados`,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  }
+
+  /**
+   * POST /api/depositos/:id/desasociar
+   * Desasocia un depósito de una cuenta corriente
+   */
+  async desasociarDeCuenta(req: Request, res: Response) {
+    try {
+      const id = parseInt(req.params.id);
+      const deposito = depositosService.desasociarDeCuenta(id);
+
+      res.json({
+        data: deposito,
+        message: 'Depósito desasociado correctamente. El INGRESO fue eliminado de la cuenta corriente.',
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
     }
   }
 }

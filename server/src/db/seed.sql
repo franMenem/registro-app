@@ -9,6 +9,8 @@ INSERT OR IGNORE INTO conceptos (nombre, tipo, frecuencia_pago) VALUES
 ('PROVINCIA (ARBA)', 'RENTAS', 'QUINCENAL'),
 ('Consulta', 'RENTAS', 'NINGUNA'),
 ('POSNET', 'RENTAS', 'NINGUNA'),
+('VEP', 'RENTAS', 'NINGUNA'),
+('ePagos', 'RENTAS', 'NINGUNA'),
 ('ICBC', 'RENTAS', 'NINGUNA');
 
 -- Conceptos CAJA
@@ -18,6 +20,8 @@ INSERT OR IGNORE INTO conceptos (nombre, tipo, frecuencia_pago) VALUES
 ('SUCERP - Sellado', 'CAJA', 'SEMANAL'),
 ('Formularios', 'CAJA', 'NINGUNA'),
 ('POSNET CAJA', 'CAJA', 'NINGUNA'),
+('VEP CAJA', 'CAJA', 'NINGUNA'),
+('ePagos CAJA', 'CAJA', 'NINGUNA'),
 ('DEPOSITOS', 'CAJA', 'NINGUNA');
 
 -- Cuentas Corrientes

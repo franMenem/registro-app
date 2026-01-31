@@ -18,6 +18,12 @@ import formulariosRoutes from './routes/formularios.routes';
 import gastosPersonalesRoutes from './routes/gastos-personales.routes';
 import clientesRoutes from './routes/clientes.routes';
 import adminRoutes from './routes/admin.routes';
+import vepsRoutes from './routes/veps.routes';
+import epagosRoutes from './routes/epagos.routes';
+import migracionRoutes from './routes/migracion.routes';
+import efectivoRoutes from './routes/efectivo.routes';
+import planillasRoutes from './routes/planillas.routes';
+import reportesRoutes from './routes/reportes.routes';
 
 // Load environment variables
 dotenv.config();
@@ -57,6 +63,12 @@ app.use('/api/formularios', formulariosRoutes);
 app.use('/api/gastos-personales', gastosPersonalesRoutes);
 app.use('/api/clientes', clientesRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/veps', vepsRoutes);
+app.use('/api/epagos', epagosRoutes);
+app.use('/api/migracion', migracionRoutes);
+app.use('/api/efectivo', efectivoRoutes);
+app.use('/api/planillas', planillasRoutes);
+app.use('/api/reportes', reportesRoutes);
 
 // 404 handler
 app.use((req, res) => {

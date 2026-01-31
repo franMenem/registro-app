@@ -146,6 +146,36 @@ export class ClientesController {
       res.status(500).json({ success: false, error: error.message });
     }
   }
+
+  /**
+   * GET /api/clientes/:id/depositos
+   */
+  async obtenerConDepositos(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const cliente = clientesService.obtenerConDepositos(parseInt(id));
+
+      if (!cliente) {
+        return res.status(404).json({ success: false, error: 'Cliente no encontrado' });
+      }
+
+      res.json({ success: true, data: cliente });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  /**
+   * GET /api/clientes/resumen
+   */
+  async obtenerResumen(req: Request, res: Response) {
+    try {
+      const resumen = clientesService.obtenerResumen();
+      res.json({ success: true, data: resumen });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
 }
 
 export default new ClientesController();

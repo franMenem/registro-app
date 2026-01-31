@@ -6,6 +6,7 @@ import FormularioRentas from './pages/FormularioRentas';
 import FormularioCaja from './pages/FormularioCaja';
 import CuentasCorrientes from './pages/CuentasCorrientes';
 import Depositos from './pages/Depositos';
+import DepositosImport from './pages/DepositosImport';
 import GastosRegistro from './pages/GastosRegistro';
 import GastosPersonales from './pages/GastosPersonales';
 import ControlPosnetDiario from './pages/ControlPosnetDiario';
@@ -15,6 +16,9 @@ import Planillas from './pages/Planillas';
 import HistorialMovimientos from './pages/HistorialMovimientos';
 import Reportes from './pages/Reportes';
 import Configuracion from './pages/Configuracion';
+import VEPs from './pages/VEPs';
+import EPagos from './pages/EPagos';
+import ControlEfectivo from './pages/ControlEfectivo';
 
 function App() {
   return (
@@ -25,10 +29,14 @@ function App() {
           <Route path="rentas" element={<FormularioRentas />} />
           <Route path="caja" element={<FormularioCaja />} />
           <Route path="cuentas" element={<CuentasCorrientes />} />
+          <Route path="efectivo" element={<ControlEfectivo />} />
           <Route path="depositos" element={<Depositos />} />
+          <Route path="depositos/importar" element={<DepositosImport />} />
           <Route path="gastos-registro" element={<GastosRegistro />} />
           <Route path="gastos-personales" element={<GastosPersonales />} />
           <Route path="posnet-diario" element={<ControlPosnetDiario />} />
+          <Route path="veps" element={<VEPs />} />
+          <Route path="epagos" element={<EPagos />} />
           <Route path="formularios" element={<Formularios />} />
           <Route path="clientes" element={<Clientes />} />
           <Route path="planillas" element={<Planillas />} />

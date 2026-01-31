@@ -13,6 +13,7 @@ export interface TableProps {
   loading?: boolean;
   emptyMessage?: string;
   onRowClick?: (row: any) => void;
+  isRowClickable?: (row: any) => boolean;
   renderCell?: (column: TableColumn, row: any) => React.ReactNode;
 }
 
@@ -22,6 +23,7 @@ export const Table: React.FC<TableProps> = ({
   loading = false,
   emptyMessage = 'No hay datos para mostrar',
   onRowClick,
+  isRowClickable,
   renderCell,
 }) => {
   return (
@@ -81,30 +83,35 @@ export const Table: React.FC<TableProps> = ({
               </td>
             </tr>
           ) : (
-            data.map((row, rowIndex) => (
-              <tr
-                key={rowIndex}
-                className={`hover:bg-border-light transition-colors ${
-                  onRowClick ? 'cursor-pointer' : ''
-                }`}
-                onClick={() => onRowClick?.(row)}
-              >
-                {columns.map((column) => (
-                  <td
-                    key={column.key}
-                    className={`px-6 py-4 whitespace-nowrap text-sm text-text-primary ${
-                      column.align === 'right'
-                        ? 'text-right'
-                        : column.align === 'center'
-                        ? 'text-center'
-                        : 'text-left'
-                    }`}
-                  >
-                    {renderCell ? renderCell(column, row) : row[column.key]}
-                  </td>
-                ))}
-              </tr>
-            ))
+            data.map((row, rowIndex) => {
+              const clickable = isRowClickable ? isRowClickable(row) : !!onRowClick;
+              return (
+                <tr
+                  key={rowIndex}
+                  className={`transition-colors ${
+                    clickable
+                      ? 'cursor-pointer hover:bg-primary-light/20 hover:shadow-sm active:bg-primary-light/30'
+                      : 'hover:bg-border-light'
+                  }`}
+                  onClick={() => clickable && onRowClick?.(row)}
+                >
+                  {columns.map((column) => (
+                    <td
+                      key={column.key}
+                      className={`px-6 py-4 whitespace-nowrap text-sm text-text-primary ${
+                        column.align === 'right'
+                          ? 'text-right'
+                          : column.align === 'center'
+                          ? 'text-center'
+                          : 'text-left'
+                      }`}
+                    >
+                      {renderCell ? renderCell(column, row) : row[column.key]}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })
           )}
         </tbody>
       </table>

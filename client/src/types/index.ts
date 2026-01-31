@@ -100,6 +100,8 @@ export interface DashboardStats {
   total_semanal_pendiente: number;
   total_quincenal_pendiente: number;
   alertas_pagos: number;
+  total_arancel_mes: number;
+  efectivo_en_mano: number;
 }
 
 export interface ControlPendiente {
@@ -143,6 +145,8 @@ export interface Deposito {
   observaciones: string | null;
   cuenta_id: number | null;
   cuenta_nombre?: string;
+  cliente_id: number | null;
+  cliente_nombre?: string;
   movimiento_origen_id: number | null;
   created_at: string;
 }
@@ -153,6 +157,8 @@ export interface DepositoCreate {
   titular: string;
   observaciones?: string;
   cuenta_id?: number;
+  cliente_id?: number;
+  fecha_uso?: string;
 }
 
 export interface DepositoEstadisticas {

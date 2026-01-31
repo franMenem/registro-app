@@ -130,9 +130,25 @@ export const cuentasApi = {
     return data.data;
   },
 
+  createMovimiento: async (
+    cuentaId: number,
+    datos: {
+      fecha: string;
+      tipo_movimiento: 'INGRESO' | 'EGRESO';
+      concepto: string;
+      monto: number;
+    }
+  ): Promise<MovimientoCC> => {
+    const { data } = await api.post<ApiResponse<MovimientoCC>>(
+      `/cuentas/${cuentaId}/movimientos`,
+      datos
+    );
+    return data.data;
+  },
+
   updateMovimiento: async (
     movimientoId: number,
-    datos: { monto?: number; concepto?: string }
+    datos: { monto?: number; concepto?: string; fecha?: string }
   ): Promise<{ message: string }> => {
     const { data } = await api.put<{ message: string }>(
       `/cuentas/movimientos/${movimientoId}`,
@@ -330,6 +346,24 @@ export const depositosApi = {
       cuenta_id: cuentaId,
     });
     return data;
+  },
+
+  desasociarCuenta: async (id: number): Promise<{ message: string }> => {
+    const { data } = await api.post<{ message: string }>(`/depositos/${id}/desasociar`);
+    return data;
+  },
+
+  sincronizarMovimientos: async (): Promise<{
+    procesados: number;
+    movimientos_creados: number;
+    message: string;
+  }> => {
+    const { data } = await api.post('/depositos/sincronizar-movimientos');
+    return {
+      procesados: data.data.procesados,
+      movimientos_creados: data.data.movimientos_creados,
+      message: data.message,
+    };
   },
 };
 
@@ -560,6 +594,26 @@ export const clientesApi = {
     const { data } = await api.delete<{ message: string }>(`/clientes/${id}`);
     return data;
   },
+
+  getConDepositos: async (id: number): Promise<any> => {
+    const { data } = await api.get<ApiResponse<any>>(`/clientes/${id}/depositos`);
+    return data.data;
+  },
+
+  getResumen: async (): Promise<{
+    total_clientes: number;
+    clientes_con_depositos: number;
+    total_depositado: number;
+  }> => {
+    const { data } = await api.get<
+      ApiResponse<{
+        total_clientes: number;
+        clientes_con_depositos: number;
+        total_depositado: number;
+      }>
+    >('/clientes/resumen');
+    return data.data;
+  },
 };
 
 // Gastos Personales
@@ -617,6 +671,204 @@ export const gastosPersonalesApi = {
       registros_procesados: number;
     }>>('/gastos-personales/import', { contenido });
     return data.data;
+  },
+};
+
+// VEPs
+export const vepsApi = {
+  getAll: async (filters?: {
+    fecha_desde?: string;
+    fecha_hasta?: string;
+    tipo?: string;
+  }): Promise<{ data: any[]; totales: any }> => {
+    const { data } = await api.get('/veps', {
+      params: filters,
+    });
+    return data;
+  },
+
+  create: async (vep: {
+    fecha: string;
+    monto: number;
+    tipo: 'RENTAS' | 'CAJA';
+    observaciones?: string;
+  }): Promise<{ message: string; data: any }> => {
+    const { data } = await api.post<ApiResponse<any>>('/veps', vep);
+    return { message: data.message || '', data: data.data };
+  },
+
+  update: async (id: number, datos: {
+    fecha?: string;
+    monto?: number;
+    tipo?: string;
+    observaciones?: string;
+  }): Promise<{ message: string }> => {
+    const { data } = await api.put<{ message: string }>(`/veps/${id}`, datos);
+    return data;
+  },
+
+  delete: async (id: number): Promise<{ message: string }> => {
+    const { data } = await api.delete<{ message: string }>(`/veps/${id}`);
+    return data;
+  },
+};
+
+// ePagos
+export const epagosApi = {
+  getAll: async (filters?: {
+    fecha_desde?: string;
+    fecha_hasta?: string;
+    tipo?: string;
+  }): Promise<{ data: any[]; totales: any }> => {
+    const { data } = await api.get('/epagos', {
+      params: filters,
+    });
+    return data;
+  },
+
+  create: async (epago: {
+    fecha: string;
+    monto: number;
+    tipo: 'RENTAS' | 'CAJA';
+    observaciones?: string;
+  }): Promise<{ message: string; data: any }> => {
+    const { data } = await api.post<ApiResponse<any>>('/epagos', epago);
+    return { message: data.message || '', data: data.data };
+  },
+
+  update: async (id: number, datos: {
+    fecha?: string;
+    monto?: number;
+    tipo?: string;
+    observaciones?: string;
+  }): Promise<{ message: string }> => {
+    const { data } = await api.put<{ message: string }>(`/epagos/${id}`, datos);
+    return data;
+  },
+
+  delete: async (id: number): Promise<{ message: string }> => {
+    const { data } = await api.delete<{ message: string }>(`/epagos/${id}`);
+    return data;
+  },
+};
+
+// Migraciones
+export const migracionApi = {
+  migrarVepsYEpagos: async (): Promise<{
+    veps_migrados: number;
+    epagos_migrados: number;
+    errores: string[];
+    message: string;
+  }> => {
+    const { data } = await api.post('/migracion/veps-epagos');
+    return {
+      veps_migrados: data.data.veps_migrados,
+      epagos_migrados: data.data.epagos_migrados,
+      errores: data.data.errores,
+      message: data.message,
+    };
+  },
+};
+
+// Reportes
+export const reportesApi = {
+  // Depósitos
+  getDepositosPorPeriodo: async (filtros?: {
+    fecha_desde?: string;
+    fecha_hasta?: string;
+    estado?: string;
+  }): Promise<any[]> => {
+    const { data } = await api.get('/reportes/depositos/periodo', { params: filtros });
+    return data;
+  },
+
+  getDepositosPorEstado: async (filtros?: {
+    fecha_desde?: string;
+    fecha_hasta?: string;
+  }): Promise<any[]> => {
+    const { data } = await api.get('/reportes/depositos/estado', { params: filtros });
+    return data;
+  },
+
+  getDepositosPorCliente: async (filtros?: {
+    fecha_desde?: string;
+    fecha_hasta?: string;
+    cliente_id?: number;
+  }): Promise<any[]> => {
+    const { data } = await api.get('/reportes/depositos/cliente', { params: filtros });
+    return data;
+  },
+
+  getTopDepositos: async (limit: number = 10): Promise<any[]> => {
+    const { data } = await api.get('/reportes/depositos/top', { params: { limit } });
+    return data;
+  },
+
+  // Cuentas Corrientes
+  getBalanceCuentas: async (): Promise<any[]> => {
+    const { data } = await api.get('/reportes/cuentas/balance');
+    return data;
+  },
+
+  getMovimientosCuentaPorPeriodo: async (filtros?: {
+    fecha_desde?: string;
+    fecha_hasta?: string;
+    cuenta_id?: number;
+  }): Promise<any[]> => {
+    const { data } = await api.get('/reportes/cuentas/movimientos-periodo', { params: filtros });
+    return data;
+  },
+
+  getEvolucionSaldos: async (
+    cuenta_id: number,
+    fecha_desde?: string,
+    fecha_hasta?: string
+  ): Promise<any[]> => {
+    const { data } = await api.get(`/reportes/cuentas/${cuenta_id}/evolucion`, {
+      params: { fecha_desde, fecha_hasta },
+    });
+    return data;
+  },
+
+  getCuentasConSaldoNegativo: async (): Promise<any[]> => {
+    const { data } = await api.get('/reportes/cuentas/saldo-negativo');
+    return data;
+  },
+
+  // Clientes
+  getClientesConMasDepositos: async (limit: number = 10): Promise<any[]> => {
+    const { data } = await api.get('/reportes/clientes/top-depositos', { params: { limit } });
+    return data;
+  },
+
+  getClientesConSaldosActivos: async (): Promise<any[]> => {
+    const { data } = await api.get('/reportes/clientes/saldos-activos');
+    return data;
+  },
+
+  // Financiero
+  getResumenMensual: async (anio: number, mes: number): Promise<any[]> => {
+    const { data } = await api.get('/reportes/financiero/resumen-mensual', {
+      params: { anio, mes },
+    });
+    return data;
+  },
+
+  getComparativaMensual: async (anio: number): Promise<any[]> => {
+    const { data } = await api.get('/reportes/financiero/comparativa-mensual', {
+      params: { anio },
+    });
+    return data;
+  },
+
+  getFlujoCajaProyectado: async (): Promise<any[]> => {
+    const { data } = await api.get('/reportes/financiero/flujo-caja');
+    return data;
+  },
+
+  getTopMovimientos: async (limit: number = 10): Promise<any[]> => {
+    const { data } = await api.get('/reportes/financiero/top-movimientos', { params: { limit } });
+    return data;
   },
 };
 

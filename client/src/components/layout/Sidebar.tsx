@@ -13,6 +13,7 @@ import {
   BarChart2,
   Settings,
   History,
+  CreditCard,
 } from 'lucide-react';
 
 interface NavItem {
@@ -43,6 +44,11 @@ const navItems: NavItem[] = [
     icon: <Landmark className="h-5 w-5" />,
   },
   {
+    path: '/efectivo',
+    label: 'Control Efectivo',
+    icon: <Wallet className="h-5 w-5" />,
+  },
+  {
     path: '/depositos',
     label: 'Depósitos',
     icon: <DollarSign className="h-5 w-5" />,
@@ -61,6 +67,16 @@ const navItems: NavItem[] = [
     path: '/posnet-diario',
     label: 'Control POSNET',
     icon: <BarChart2 className="h-5 w-5" />,
+  },
+  {
+    path: '/veps',
+    label: 'VEPs',
+    icon: <CreditCard className="h-5 w-5" />,
+  },
+  {
+    path: '/epagos',
+    label: 'ePagos',
+    icon: <CreditCard className="h-5 w-5" />,
   },
   {
     path: '/formularios',
