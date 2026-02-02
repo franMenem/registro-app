@@ -54,6 +54,11 @@ const navItems: NavItem[] = [
     icon: <DollarSign className="h-5 w-5" />,
   },
   {
+    path: '/clientes',
+    label: 'Clientes',
+    icon: <Users className="h-5 w-5" />,
+  },
+  {
     path: '/gastos-registro',
     label: 'Gastos Registro',
     icon: <ShoppingCart className="h-5 w-5" />,
@@ -87,11 +92,6 @@ const navItems: NavItem[] = [
     path: '/formularios',
     label: 'Formularios',
     icon: <FileSpreadsheet className="h-5 w-5" />,
-  },
-  {
-    path: '/clientes',
-    label: 'Clientes',
-    icon: <Users className="h-5 w-5" />,
   },
   {
     path: '/planillas',

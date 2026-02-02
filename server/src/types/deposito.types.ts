@@ -25,6 +25,7 @@ export interface Deposito {
 export interface DepositoCreate {
   monto_original: number;
   fecha_ingreso: string;
+  fecha_uso?: string;
   titular: string;
   observaciones?: string;
   cuenta_id?: number;

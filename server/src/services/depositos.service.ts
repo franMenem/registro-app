@@ -121,7 +121,7 @@ export class DepositosService {
           data.monto_original,
           data.monto_original, // saldo_actual inicial = monto_original
           data.fecha_ingreso,
-          null, // fecha_uso is null on creation
+          data.fecha_uso || null, // fecha_uso opcional
           data.titular,
           data.observaciones || null,
           data.cliente_id || null
