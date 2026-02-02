@@ -674,7 +674,7 @@ const GastosMios: React.FC = () => {
             >
               Cancelar
             </Button>
-            <Button type="submit" isLoading={createMutation.isPending || updateMutation.isPending}>
+            <Button type="submit" loading={createMutation.isPending || updateMutation.isPending}>
               {modalGasto.gasto ? 'Actualizar' : 'Crear'}
             </Button>
           </div>
@@ -689,7 +689,7 @@ const GastosMios: React.FC = () => {
         title="Eliminar Registro"
         message={`¿Está seguro que desea eliminar el registro "${deleteDialog.concepto}"?`}
         confirmText="Eliminar"
-        confirmVariant="danger"
+        variant="danger"
         isLoading={deleteMutation.isPending}
       />
     </div>

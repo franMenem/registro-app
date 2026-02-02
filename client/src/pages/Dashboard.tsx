@@ -47,9 +47,7 @@ const Dashboard: React.FC = () => {
       }
     },
     onSuccess: () => {
-      showToast.success('✅ Control marcado como PAGADO exitosamente. El control ha sido removido de la lista de pendientes.', {
-        duration: 6000,
-      });
+      showToast.success('✅ Control marcado como PAGADO exitosamente. El control ha sido removido de la lista de pendientes.');
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
       queryClient.invalidateQueries({ queryKey: ['controles-pendientes'] });
       queryClient.invalidateQueries({ queryKey: ['alertas-pagos'] });

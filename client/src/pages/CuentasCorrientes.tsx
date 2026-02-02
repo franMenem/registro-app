@@ -213,7 +213,7 @@ const CuentasCorrientes: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['cuentas'] });
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Error al crear el movimiento');
+      showToast.error(error.message || 'Error al crear el movimiento');
     },
   });
 
@@ -228,15 +228,15 @@ const CuentasCorrientes: React.FC = () => {
 
   const handleSaveEdit = (id: number) => {
     if (editValues.monto <= 0) {
-      toast.error('El monto debe ser mayor a 0');
+      showToast.error('El monto debe ser mayor a 0');
       return;
     }
     if (!editValues.concepto.trim()) {
-      toast.error('El concepto es requerido');
+      showToast.error('El concepto es requerido');
       return;
     }
     if (!editValues.fecha) {
-      toast.error('La fecha es requerida');
+      showToast.error('La fecha es requerida');
       return;
     }
     updateMutation.mutate({ id, ...editValues });
@@ -420,7 +420,7 @@ const CuentasCorrientes: React.FC = () => {
     if (!file) return;
 
     if (!file.name.endsWith('.csv')) {
-      toast.error('Por favor seleccioná un archivo CSV');
+      showToast.error('Por favor seleccioná un archivo CSV');
       return;
     }
 
@@ -428,7 +428,7 @@ const CuentasCorrientes: React.FC = () => {
       const contenido = await file.text();
       importarCSVMutation.mutate(contenido);
     } catch (error) {
-      toast.error('Error al leer el archivo');
+      showToast.error('Error al leer el archivo');
     } finally {
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
@@ -470,12 +470,12 @@ const CuentasCorrientes: React.FC = () => {
     e.preventDefault();
 
     if (!nuevoMovimientoForm.concepto.trim()) {
-      toast.error('El concepto es requerido');
+      showToast.error('El concepto es requerido');
       return;
     }
 
     if (nuevoMovimientoForm.monto <= 0) {
-      toast.error('El monto debe ser mayor a 0');
+      showToast.error('El monto debe ser mayor a 0');
       return;
     }
 

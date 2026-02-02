@@ -1499,7 +1499,6 @@ const Depositos: React.FC = () => {
                       cuentaId: clienteId ? null : asociarCuentaDialog.cuentaId, // Si selecciona cliente, limpia cuenta
                     })
                   }
-                  disabled={!!asociarCuentaDialog.cuentaId}
                 />
                 {asociarCuentaDialog.clienteId && (
                   <p className="text-xs text-text-secondary mt-1">

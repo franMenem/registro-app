@@ -434,8 +434,8 @@ const ControlEfectivo: React.FC = () => {
         <Card
           title="Nuevo Movimiento"
           subtitle="Registrar gasto o depósito de efectivo"
-          headerAction={
-            <Button variant="ghost" icon={X} onClick={resetForm}>
+          actions={
+            <Button variant="outline" icon={X} onClick={resetForm}>
               Cancelar
             </Button>
           }
@@ -646,7 +646,7 @@ const ControlEfectivo: React.FC = () => {
             : ''
         }
         confirmText="Eliminar"
-        variant="error"
+        variant="danger"
         isLoading={deleteMovimientoMutation.isPending}
       />
     </div>

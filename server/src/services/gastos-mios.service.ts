@@ -6,6 +6,8 @@ import {
   GastoMioFilters,
   ResumenGastosMios,
   ConceptoGastoMio,
+  CategoriaGastoMio,
+  TipoGastoMio,
   CONCEPTOS_GASTOS_MIOS,
 } from '../types/gastos-mios.types';
 
