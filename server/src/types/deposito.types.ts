@@ -50,4 +50,6 @@ export interface DepositoFilters {
   cuenta_id?: number;
   fecha_desde?: string;
   fecha_hasta?: string;
+  limit?: number;
+  offset?: number;
 }

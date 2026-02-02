@@ -21,6 +21,7 @@ export type ConceptoGastoRegistral =
   | 'FED_PATRONAL'
   | 'FIBERTEL'
   | 'LIBRERIA'
+  | 'MARIA'
   | 'OTROS'
   | 'SUELDOS'
   | 'SUPERMERCADOS'

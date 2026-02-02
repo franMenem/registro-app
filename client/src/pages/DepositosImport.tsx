@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Upload, FileText, CheckCircle, AlertCircle, DollarSign } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { showToast } from '@/components/ui/Toast';
 
 interface DepositoPreview {
   monto_deposito: number;
@@ -189,11 +189,11 @@ export default function DepositosImport() {
 
         const data = await response.json();
         setResultado(data.data);
-        toast.success(data.message);
+        showToast.success(data.message);
       };
       reader.readAsText(file);
     } catch (error: any) {
-      toast.error(error.message || 'Error al importar depósitos');
+      showToast.error(error.message || 'Error al importar depósitos');
     } finally {
       setLoading(false);
     }

@@ -102,6 +102,37 @@ export class ControlSemanalService implements IControlService {
   }
 
   /**
+   * Resta un monto de un control semanal existente
+   */
+  restarDelControl(conceptoId: number, fecha: Date, monto: number): void {
+    const { fechaInicio, fechaFin } = calcularSemanaLaboral(fecha);
+
+    // Buscar control existente
+    const controlExistente = db
+      .prepare(
+        `SELECT * FROM controles_semanales
+         WHERE concepto_id = ? AND fecha_inicio = ? AND fecha_fin = ?`
+      )
+      .get(conceptoId, fechaInicio, fechaFin);
+
+    if (controlExistente) {
+      const nuevoTotal = (controlExistente as any).total_recaudado - monto;
+
+      if (nuevoTotal <= 0) {
+        // Si el total queda en 0 o negativo, eliminar el control
+        db.prepare('DELETE FROM controles_semanales WHERE id = ?').run((controlExistente as any).id);
+      } else {
+        // Actualizar total
+        db.prepare(
+          `UPDATE controles_semanales
+           SET total_recaudado = ?
+           WHERE id = ?`
+        ).run(nuevoTotal, (controlExistente as any).id);
+      }
+    }
+  }
+
+  /**
    * Elimina un control semanal
    */
   eliminar(controlId: number): void {

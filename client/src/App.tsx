@@ -9,6 +9,7 @@ import Depositos from './pages/Depositos';
 import DepositosImport from './pages/DepositosImport';
 import GastosRegistro from './pages/GastosRegistro';
 import GastosPersonales from './pages/GastosPersonales';
+import GastosMios from './pages/GastosMios';
 import ControlPosnetDiario from './pages/ControlPosnetDiario';
 import Formularios from './pages/Formularios';
 import Clientes from './pages/Clientes';
@@ -19,10 +20,12 @@ import Configuracion from './pages/Configuracion';
 import VEPs from './pages/VEPs';
 import EPagos from './pages/EPagos';
 import ControlEfectivo from './pages/ControlEfectivo';
+import { ToastProvider } from './components/ui/Toast';
 
 function App() {
   return (
     <BrowserRouter>
+      <ToastProvider />
       <Routes>
         <Route path="/" element={<MainLayout />}>
           <Route index element={<Dashboard />} />
@@ -34,6 +37,7 @@ function App() {
           <Route path="depositos/importar" element={<DepositosImport />} />
           <Route path="gastos-registro" element={<GastosRegistro />} />
           <Route path="gastos-personales" element={<GastosPersonales />} />
+          <Route path="gastos-mios" element={<GastosMios />} />
           <Route path="posnet-diario" element={<ControlPosnetDiario />} />
           <Route path="veps" element={<VEPs />} />
           <Route path="epagos" element={<EPagos />} />

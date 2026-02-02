@@ -126,8 +126,8 @@ export function procesarMovimientosCSV(contenido: string): MovimientoImport[] {
       const fechaIngreso = campos[5]?.trim();
 
       // Determinar concepto según el rubro
-      let conceptoEgreso = 'Gastos del día';
-      let conceptoIngreso = 'Depósito';
+      let conceptoEgreso = 'Egreso indefinido';
+      let conceptoIngreso = 'Ingreso indefinido';
 
       if (rubro === 'CAJA') {
         conceptoEgreso = 'Gastos de CAJA';
@@ -136,6 +136,7 @@ export function procesarMovimientosCSV(contenido: string): MovimientoImport[] {
         conceptoEgreso = 'Gastos de RENTAS';
         conceptoIngreso = 'Depósito RENTAS';
       }
+      // Si no es CAJA ni RENTAS (vacío, undefined, u otro valor), usa "indefinido"
 
       // IMPORTANTE: Crear primero INGRESOS, luego EGRESOS
       // Esto evita saldos negativos cuando hay depósito y gasto el mismo día
@@ -190,10 +191,19 @@ export function importarMovimientosCSV(
 ): {
   insertados: number;
   errores: string[];
+  procesados: number;
+  ingresos: number;
+  egresos: number;
 } {
   const movimientos = procesarMovimientosCSV(contenido);
   const errores: string[] = [];
   let insertados = 0;
+  let ingresos = 0;
+  let egresos = 0;
+
+  console.log(`📊 Total movimientos procesados del CSV: ${movimientos.length}`);
+  console.log(`   - Ingresos: ${movimientos.filter(m => m.tipo_movimiento === 'INGRESO').length}`);
+  console.log(`   - Egresos: ${movimientos.filter(m => m.tipo_movimiento === 'EGRESO').length}`);
 
   transaction(() => {
     for (const movimiento of movimientos) {
@@ -206,6 +216,11 @@ export function importarMovimientosCSV(
           monto: movimiento.monto,
         });
         insertados++;
+        if (movimiento.tipo_movimiento === 'INGRESO') {
+          ingresos++;
+        } else {
+          egresos++;
+        }
       } catch (error: any) {
         errores.push(
           `Error al insertar movimiento del ${movimiento.fecha}: ${error.message}`
@@ -214,7 +229,11 @@ export function importarMovimientosCSV(
     }
   });
 
-  return { insertados, errores };
+  console.log(`✅ Movimientos insertados: ${insertados}`);
+  console.log(`   - Ingresos insertados: ${ingresos}`);
+  console.log(`   - Egresos insertados: ${egresos}`);
+
+  return { insertados, errores, procesados: movimientos.length, ingresos, egresos };
 }
 
 export default {

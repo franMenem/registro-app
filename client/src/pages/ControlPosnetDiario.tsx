@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
 import { es } from 'date-fns/locale';
-import toast from 'react-hot-toast';
+import { showToast } from '@/components/ui/Toast';
 import { Calendar, DollarSign, AlertCircle, CheckCircle2, TrendingUp, Upload } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { posnetDiarioApi } from '@/services/api';
@@ -58,14 +58,14 @@ const ControlPosnetDiario: React.FC = () => {
     mutationFn: ({ id, monto }: { id: number; monto: number }) =>
       posnetDiarioApi.actualizarMontoIngresado(id, monto),
     onSuccess: () => {
-      toast.success('Monto actualizado correctamente');
+      showToast.success('Monto actualizado correctamente');
       setEditandoId(null);
       setValorTemporal('');
       refetchRegistros();
       queryClient.invalidateQueries({ queryKey: ['posnet-diario-resumen'] });
     },
     onError: (error: Error) => {
-      toast.error(error.message);
+      showToast.error(error.message);
     },
   });
 
@@ -74,17 +74,17 @@ const ControlPosnetDiario: React.FC = () => {
     mutationFn: (contenido: string) => posnetDiarioApi.importarCSV(contenido),
     onSuccess: (data) => {
       const { insertados, actualizados, errores } = data;
-      toast.success(
+      showToast.success(
         `Importación completada: ${insertados} insertados, ${actualizados} actualizados`
       );
       if (errores.length > 0) {
-        toast.error(`${errores.length} errores encontrados`);
+        showToast.error(`${errores.length} errores encontrados`);
       }
       refetchRegistros();
       queryClient.invalidateQueries({ queryKey: ['posnet-diario-resumen'] });
     },
     onError: (error: Error) => {
-      toast.error(`Error al importar: ${error.message}`);
+      showToast.error(`Error al importar: ${error.message}`);
     },
   });
 
@@ -104,7 +104,7 @@ const ControlPosnetDiario: React.FC = () => {
   const handleGuardar = (id: number) => {
     const monto = parseFloat(valorTemporal);
     if (isNaN(monto) || monto < 0) {
-      toast.error('Monto inválido');
+      showToast.error('Monto inválido');
       return;
     }
 
@@ -195,7 +195,7 @@ const ControlPosnetDiario: React.FC = () => {
 
     // Validar que sea un archivo CSV
     if (!file.name.endsWith('.csv')) {
-      toast.error('Por favor seleccioná un archivo CSV');
+      showToast.error('Por favor seleccioná un archivo CSV');
       return;
     }
 
@@ -203,7 +203,7 @@ const ControlPosnetDiario: React.FC = () => {
       const contenido = await file.text();
       importarCSVMutation.mutate(contenido);
     } catch (error) {
-      toast.error('Error al leer el archivo');
+      showToast.error('Error al leer el archivo');
     } finally {
       // Resetear el input para permitir seleccionar el mismo archivo de nuevo
       if (fileInputRef.current) {

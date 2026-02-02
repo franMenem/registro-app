@@ -379,14 +379,17 @@ export class PlanillasService {
 
       const cuitGenerico = '00-00000000-0';
 
+      // Preparar statement UNA SOLA VEZ antes del loop (optimización de performance)
+      const insertMovimientoStmt = db.prepare(
+        'INSERT INTO movimientos (fecha, tipo, cuit, concepto_id, monto, observaciones) VALUES (?, ?, ?, ?, ?, ?)'
+      );
+
       for (const [campo, conceptoNombre] of Object.entries(mapeoConceptos)) {
         const valor = valores[campo] || 0;
         if (valor > 0) {
           const concepto = conceptosPorNombre.get(conceptoNombre);
           if (concepto) {
-            db.prepare(
-              'INSERT INTO movimientos (fecha, tipo, cuit, concepto_id, monto, observaciones) VALUES (?, ?, ?, ?, ?, ?)'
-            ).run(fecha, 'RENTAS', cuitGenerico, concepto.id, valor, 'Actualizado desde Planillas');
+            insertMovimientoStmt.run(fecha, 'RENTAS', cuitGenerico, concepto.id, valor, 'Actualizado desde Planillas');
 
             // Actualizar controles
             if (concepto.frecuencia_pago === 'SEMANAL') {
@@ -446,14 +449,17 @@ export class PlanillasService {
 
       const cuitGenerico = '00-00000000-0';
 
+      // Preparar statement UNA SOLA VEZ antes del loop (optimización de performance)
+      const insertMovimientoStmt = db.prepare(
+        'INSERT INTO movimientos (fecha, tipo, cuit, concepto_id, monto, observaciones) VALUES (?, ?, ?, ?, ?, ?)'
+      );
+
       for (const [campo, conceptoNombre] of Object.entries(mapeoConceptos)) {
         const valor = valores[campo] || 0;
         if (valor > 0) {
           const concepto = conceptosPorNombre.get(conceptoNombre);
           if (concepto) {
-            db.prepare(
-              'INSERT INTO movimientos (fecha, tipo, cuit, concepto_id, monto, observaciones) VALUES (?, ?, ?, ?, ?, ?)'
-            ).run(fecha, 'CAJA', cuitGenerico, concepto.id, valor, 'Actualizado desde Planillas');
+            insertMovimientoStmt.run(fecha, 'CAJA', cuitGenerico, concepto.id, valor, 'Actualizado desde Planillas');
 
             if (concepto.frecuencia_pago === 'SEMANAL') {
               controlSemanalService.actualizarControl(concepto.id, new Date(fecha), valor);

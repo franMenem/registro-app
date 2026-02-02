@@ -298,3 +298,24 @@ CREATE TABLE IF NOT EXISTS movimientos_efectivo (
 -- Índices para movimientos de efectivo
 CREATE INDEX IF NOT EXISTS idx_movimientos_efectivo_fecha ON movimientos_efectivo(fecha);
 CREATE INDEX IF NOT EXISTS idx_movimientos_efectivo_tipo ON movimientos_efectivo(tipo);
+
+-- ========================================
+-- GASTOS MIOS (Gastos personales de Efi)
+-- ========================================
+CREATE TABLE IF NOT EXISTS gastos_mios (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  fecha DATE NOT NULL,
+  concepto TEXT NOT NULL,
+  monto DECIMAL(12,2) NOT NULL,
+  categoria TEXT NOT NULL CHECK(categoria IN ('GASTO', 'INGRESO', 'AHORRO')),
+  tipo TEXT NOT NULL CHECK(tipo IN ('FIJO', 'VARIABLE')),
+  observaciones TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Índices para gastos mios
+CREATE INDEX IF NOT EXISTS idx_gastos_mios_fecha ON gastos_mios(fecha);
+CREATE INDEX IF NOT EXISTS idx_gastos_mios_concepto ON gastos_mios(concepto);
+CREATE INDEX IF NOT EXISTS idx_gastos_mios_categoria ON gastos_mios(categoria);
+CREATE INDEX IF NOT EXISTS idx_gastos_mios_tipo ON gastos_mios(tipo);

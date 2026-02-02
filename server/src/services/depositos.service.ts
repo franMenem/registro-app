@@ -7,9 +7,9 @@ import { Deposito, DepositoCreate, DepositoUpdate, DepositoFilters } from '../ty
  */
 export class DepositosService {
   /**
-   * Obtiene todos los depósitos con filtros opcionales
+   * Obtiene todos los depósitos con filtros opcionales y paginación
    */
-  getDepositos(filters?: DepositoFilters): Deposito[] {
+  getDepositos(filters?: DepositoFilters): { depositos: Deposito[]; total: number } {
     let query = `
       SELECT d.*, cc.nombre as cuenta_nombre, cl.razon_social as cliente_nombre
       FROM depositos d
@@ -40,12 +40,51 @@ export class DepositosService {
       params.push(filters.fecha_hasta);
     }
 
+    // Contar total antes de aplicar paginación
+    let countQuery = `
+      SELECT COUNT(*) as total
+      FROM depositos d
+      WHERE 1=1
+    `;
+    const countParams: any[] = [];
+
+    if (filters?.estado) {
+      countQuery += ' AND d.estado = ?';
+      countParams.push(filters.estado);
+    }
+
+    if (filters?.cuenta_id) {
+      countQuery += ' AND d.cuenta_id = ?';
+      countParams.push(filters.cuenta_id);
+    }
+
+    if (filters?.fecha_desde) {
+      countQuery += ' AND d.fecha_ingreso >= ?';
+      countParams.push(filters.fecha_desde);
+    }
+
+    if (filters?.fecha_hasta) {
+      countQuery += ' AND d.fecha_ingreso <= ?';
+      countParams.push(filters.fecha_hasta);
+    }
+
+    const { total } = db.prepare(countQuery).get(...countParams) as { total: number };
+
     // Ordenar primero por fecha_uso (más recientes primero), luego por fecha_ingreso
     // Los que tienen fecha_uso aparecen primero, ordenados por fecha_uso DESC
     // Los que NO tienen fecha_uso aparecen después, ordenados por fecha_ingreso DESC
     query += ' ORDER BY d.fecha_uso IS NULL ASC, d.fecha_uso DESC, d.fecha_ingreso DESC';
 
-    return db.prepare(query).all(...params) as Deposito[];
+    // Aplicar paginación
+    const limit = filters?.limit || 100;
+    const offset = filters?.offset || 0;
+
+    query += ' LIMIT ? OFFSET ?';
+    params.push(limit, offset);
+
+    const depositos = db.prepare(query).all(...params) as Deposito[];
+
+    return { depositos, total };
   }
 
   /**
@@ -82,7 +121,7 @@ export class DepositosService {
           data.monto_original,
           data.monto_original, // saldo_actual inicial = monto_original
           data.fecha_ingreso,
-          data.fecha_uso || null,
+          null, // fecha_uso is null on creation
           data.titular,
           data.observaciones || null,
           data.cliente_id || null

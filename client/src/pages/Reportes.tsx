@@ -29,7 +29,7 @@ import {
   Calendar,
   Filter,
 } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { showToast } from '@/components/ui/Toast';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
@@ -142,7 +142,7 @@ const Reportes: React.FC = () => {
   // ==================== FUNCIONES DE EXPORTACIÓN ====================
   const exportarCSV = (datos: any[], nombre: string) => {
     if (!datos || datos.length === 0) {
-      toast.error('No hay datos para exportar');
+      showToast.error('No hay datos para exportar');
       return;
     }
 
@@ -160,7 +160,7 @@ const Reportes: React.FC = () => {
     link.click();
     document.body.removeChild(link);
 
-    toast.success('CSV exportado correctamente');
+    showToast.success('CSV exportado correctamente');
   };
 
   // ==================== RENDERIZADO ====================

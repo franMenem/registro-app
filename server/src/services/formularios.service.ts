@@ -17,7 +17,7 @@ interface Vencimiento {
   numero_vencimiento: number;
   fecha_vencimiento: string;
   monto: number;
-  estado: 'PENDIENTE' | 'PAGADO';
+  estado: 'PENDIENTE' | 'PAGADO' | 'VENCIDO';
   fecha_pago: string | null;
   gasto_registral_id: number | null;
   created_at: string;
@@ -47,9 +47,73 @@ interface FormularioCreate {
  */
 export class FormulariosService {
   /**
+   * Calcula el estado de un vencimiento basándose en la fecha
+   */
+  private calcularEstadoVencimiento(vencimiento: any): 'PENDIENTE' | 'PAGADO' | 'VENCIDO' {
+    // Si está pagado, devolver PAGADO
+    if (vencimiento.fecha_pago) {
+      return 'PAGADO';
+    }
+
+    // Si la fecha de vencimiento ya pasó, es VENCIDO
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const fechaVenc = new Date(vencimiento.fecha_vencimiento);
+    fechaVenc.setHours(0, 0, 0, 0);
+
+    if (fechaVenc < hoy) {
+      return 'VENCIDO';
+    }
+
+    // Si no, es PENDIENTE
+    return 'PENDIENTE';
+  }
+
+  /**
+   * Agrega el estado calculado a cada vencimiento
+   */
+  private agregarEstadosCalculados(formularios: FormularioConVencimientos[]): FormularioConVencimientos[] {
+    return formularios.map((f) => ({
+      ...f,
+      vencimientos: f.vencimientos.map((v) => ({
+        ...v,
+        estado: this.calcularEstadoVencimiento(v),
+      })),
+    }));
+  }
+
+  /**
+   * Calcula el monto a mostrar del formulario (del próximo vencimiento no vencido/no pagado)
+   */
+  private calcularMontoFormulario(formulario: FormularioConVencimientos): number {
+    // Buscar el primer vencimiento que NO esté pagado ni vencido
+    const vencimientoPendiente = formulario.vencimientos.find(
+      (v) => this.calcularEstadoVencimiento(v) === 'PENDIENTE'
+    );
+
+    if (vencimientoPendiente) {
+      return vencimientoPendiente.monto;
+    }
+
+    // Si no hay pendientes, buscar el primer vencido
+    const vencimientoVencido = formulario.vencimientos.find(
+      (v) => this.calcularEstadoVencimiento(v) === 'VENCIDO'
+    );
+
+    if (vencimientoVencido) {
+      return vencimientoVencido.monto;
+    }
+
+    // Si todos están pagados, devolver el monto original
+    return formulario.monto;
+  }
+
+  /**
    * Obtiene todos los formularios con sus vencimientos
+   * Optimizado para evitar N+1 queries (1 query para formularios + 1 para todos los vencimientos)
    */
   obtenerTodos(): FormularioConVencimientos[] {
+    // 1. Obtener todos los formularios
     const formularios = db
       .prepare(
         `SELECT * FROM formularios
@@ -57,10 +121,69 @@ export class FormulariosService {
       )
       .all() as Formulario[];
 
-    return formularios.map((formulario) => ({
-      ...formulario,
-      vencimientos: this.obtenerVencimientos(formulario.id),
-    }));
+    if (formularios.length === 0) return [];
+
+    // 2. Obtener TODOS los vencimientos de una sola vez con LEFT JOIN a gastos_registrales
+    const formularioIds = formularios.map((f) => f.id);
+    const placeholders = formularioIds.map(() => '?').join(',');
+
+    const todosVencimientos = db
+      .prepare(
+        `SELECT
+          fv.*,
+          gr.fecha as gasto_fecha,
+          gr.monto as gasto_monto,
+          gr.estado as gasto_estado
+        FROM formularios_vencimientos fv
+        LEFT JOIN gastos_registrales gr ON fv.gasto_registral_id = gr.id
+        WHERE fv.formulario_id IN (${placeholders})
+        ORDER BY fv.formulario_id, fv.numero_vencimiento`
+      )
+      .all(...formularioIds) as any[];
+
+    // 3. Agrupar vencimientos por formulario_id
+    const vencimientosPorFormulario = new Map<number, Vencimiento[]>();
+    for (const venc of todosVencimientos) {
+      if (!vencimientosPorFormulario.has(venc.formulario_id)) {
+        vencimientosPorFormulario.set(venc.formulario_id, []);
+      }
+
+      // Construir vencimiento con datos del gasto si existe
+      const vencimiento: Vencimiento = {
+        id: venc.id,
+        formulario_id: venc.formulario_id,
+        numero_vencimiento: venc.numero_vencimiento,
+        fecha_vencimiento: venc.fecha_vencimiento,
+        monto: venc.monto,
+        estado: venc.estado,
+        fecha_pago: venc.fecha_pago,
+        gasto_registral_id: venc.gasto_registral_id,
+        created_at: venc.created_at,
+        updated_at: venc.updated_at,
+      };
+
+      vencimientosPorFormulario.get(venc.formulario_id)!.push(vencimiento);
+    }
+
+    // 4. Mapear formularios con sus vencimientos
+    const formulariosConVencimientos = formularios.map((formulario) => {
+      const vencimientos = vencimientosPorFormulario.get(formulario.id) || [];
+      const vencimientosConEstado = vencimientos.map((v) => ({
+        ...v,
+        estado: this.calcularEstadoVencimiento(v),
+      }));
+
+      return {
+        ...formulario,
+        monto: this.calcularMontoFormulario({
+          ...formulario,
+          vencimientos: vencimientosConEstado,
+        }),
+        vencimientos: vencimientosConEstado,
+      };
+    });
+
+    return formulariosConVencimientos;
   }
 
   /**
@@ -73,9 +196,19 @@ export class FormulariosService {
 
     if (!formulario) return null;
 
+    const vencimientos = this.obtenerVencimientos(id);
+    const vencimientosConEstado = vencimientos.map((v) => ({
+      ...v,
+      estado: this.calcularEstadoVencimiento(v),
+    }));
+
     return {
       ...formulario,
-      vencimientos: this.obtenerVencimientos(id),
+      monto: this.calcularMontoFormulario({
+        ...formulario,
+        vencimientos: vencimientosConEstado,
+      }),
+      vencimientos: vencimientosConEstado,
     };
   }
 
@@ -93,18 +226,24 @@ export class FormulariosService {
   }
 
   /**
-   * Obtiene vencimientos pendientes
+   * Obtiene vencimientos pendientes (incluye PENDIENTE y VENCIDO, excluye PAGADO)
    */
   obtenerVencimientosPendientes(): any[] {
-    return db
+    const vencimientos = db
       .prepare(
         `SELECT fv.*, f.numero, f.descripcion, f.proveedor
          FROM formularios_vencimientos fv
          JOIN formularios f ON fv.formulario_id = f.id
-         WHERE fv.estado = 'PENDIENTE'
+         WHERE fv.fecha_pago IS NULL
          ORDER BY fv.fecha_vencimiento ASC`
       )
-      .all();
+      .all() as any[];
+
+    // Agregar estado calculado
+    return vencimientos.map((v) => ({
+      ...v,
+      estado: this.calcularEstadoVencimiento(v),
+    }));
   }
 
   /**
@@ -310,12 +449,24 @@ export class FormulariosService {
       // Calcular total a pagar
       const totalPagar = vencimientos.reduce((sum, v) => sum + v.monto, 0);
 
+      // Obtener números de formularios asociados
+      const numerosFormularios = vencimientos.map((venc) => {
+        const formulario = db
+          .prepare('SELECT numero FROM formularios WHERE id = ?')
+          .get(venc.formulario_id) as { numero: string } | undefined;
+        return formulario?.numero || 'N/A';
+      });
+
+      // Crear observaciones con números de formularios
+      const formulariosUnicos = [...new Set(numerosFormularios)]; // Eliminar duplicados
+      const observaciones = `Formularios pagados: ${formulariosUnicos.join(', ')} (${vencimientos.length} vencimiento${vencimientos.length > 1 ? 's' : ''})`;
+
       // Crear gasto en Gastos Registrales (CARCOS)
       const gastoCreado = gastosRegistralesService.crear({
         fecha: fechaPago,
         concepto: 'CARCOS',
         monto: totalPagar,
-        observaciones: `Pago de ${vencimientos.length} vencimiento(s) de formularios`,
+        observaciones,
         origen: 'FORMULARIOS',
         estado: 'Pagado',
       });
@@ -347,27 +498,64 @@ export class FormulariosService {
    * Obtiene resumen de formularios
    */
   obtenerResumen(): any {
-    const resumen = db
-      .prepare(
-        `SELECT
-          COUNT(DISTINCT f.id) as total_formularios,
-          COUNT(fv.id) as total_vencimientos,
-          SUM(CASE WHEN fv.estado = 'PENDIENTE' THEN 1 ELSE 0 END) as vencimientos_pendientes,
-          SUM(CASE WHEN fv.estado = 'PAGADO' THEN 1 ELSE 0 END) as vencimientos_pagados,
-          COALESCE(SUM(CASE WHEN fv.estado = 'PENDIENTE' THEN fv.monto ELSE 0 END), 0) as monto_pendiente,
-          COALESCE(SUM(CASE WHEN fv.estado = 'PAGADO' THEN fv.monto ELSE 0 END), 0) as monto_pagado
-         FROM formularios f
-         LEFT JOIN formularios_vencimientos fv ON f.id = fv.formulario_id`
-      )
-      .get() as any;
+    const formularios = db.prepare('SELECT COUNT(*) as total FROM formularios').get() as any;
+
+    const vencimientos = db
+      .prepare('SELECT * FROM formularios_vencimientos')
+      .all() as any[];
+
+    // Calcular estados de vencimientos
+    let vencimientosPendientes = 0;
+    let vencimientosVencidos = 0;
+    let vencimientosPagados = 0;
+    let montoPendiente = 0;
+    let montoVencido = 0;
+    let montoPagado = 0;
+
+    vencimientos.forEach((v) => {
+      const estado = this.calcularEstadoVencimiento(v);
+
+      if (estado === 'PENDIENTE') {
+        vencimientosPendientes++;
+        montoPendiente += v.monto;
+      } else if (estado === 'VENCIDO') {
+        vencimientosVencidos++;
+        montoVencido += v.monto;
+      } else if (estado === 'PAGADO') {
+        vencimientosPagados++;
+        montoPagado += v.monto;
+      }
+    });
+
+    // Calcular saldo pendiente de formularios (suma dinámica de montos a mostrar)
+    // Solo contar formularios "activos" = NINGÚN vencimiento pagado todavía
+    const todosFormularios = this.obtenerTodos();
+    let saldoPendienteFormularios = 0;
+    let formulariosConDeuda = 0;
+
+    todosFormularios.forEach((formulario) => {
+      // Solo contar formularios donde TODOS los vencimientos están sin pagar (activos)
+      const todosVencimientosSinPagar = formulario.vencimientos.every(
+        (v) => v.estado === 'PENDIENTE' || v.estado === 'VENCIDO'
+      );
+
+      if (todosVencimientosSinPagar) {
+        saldoPendienteFormularios += formulario.monto; // Este monto ya es el calculado dinámicamente
+        formulariosConDeuda++;
+      }
+    });
 
     return {
-      total_formularios: resumen.total_formularios || 0,
-      total_vencimientos: resumen.total_vencimientos || 0,
-      vencimientos_pendientes: resumen.vencimientos_pendientes || 0,
-      vencimientos_pagados: resumen.vencimientos_pagados || 0,
-      monto_pendiente: resumen.monto_pendiente || 0,
-      monto_pagado: resumen.monto_pagado || 0,
+      total_formularios: formularios.total || 0,
+      total_vencimientos: vencimientos.length,
+      vencimientos_pendientes: vencimientosPendientes,
+      vencimientos_vencidos: vencimientosVencidos,
+      vencimientos_pagados: vencimientosPagados,
+      monto_pendiente: montoPendiente,
+      monto_vencido: montoVencido,
+      monto_pagado: montoPagado,
+      saldo_pendiente_formularios: saldoPendienteFormularios,
+      formularios_con_deuda: formulariosConDeuda,
     };
   }
 }

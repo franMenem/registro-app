@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import toast from 'react-hot-toast';
+import { showToast } from '@/components/ui/Toast';
 import {
   Plus,
   Edit,
@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Modal } from '@/components/ui/Modal';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { Pagination } from '@/components/ui/Pagination';
 import { formulariosApi } from '@/services/api';
 
 interface Vencimiento {
@@ -83,6 +84,10 @@ const Formularios: React.FC = () => {
   // Tab activo: 'activos' o 'historicos'
   const [tabActivo, setTabActivo] = useState<'activos' | 'historicos'>('activos');
 
+  // Paginación
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(50);
+
   // Filtros para históricos
   const [filtros, setFiltros] = useState({
     numero: '',
@@ -106,41 +111,41 @@ const Formularios: React.FC = () => {
   const createMutation = useMutation({
     mutationFn: formulariosApi.create,
     onSuccess: (response) => {
-      toast.success(response.message);
+      showToast.success(response.message);
       setModalFormulario({ isOpen: false, formulario: null });
       resetForm();
       refetchFormularios();
       queryClient.invalidateQueries({ queryKey: ['formularios-resumen'] });
     },
     onError: (error: Error) => {
-      toast.error(error.message);
+      showToast.error(error.message);
     },
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, datos }: { id: number; datos: any }) => formulariosApi.update(id, datos),
     onSuccess: (response) => {
-      toast.success(response.message);
+      showToast.success(response.message);
       setModalFormulario({ isOpen: false, formulario: null });
       resetForm();
       refetchFormularios();
       queryClient.invalidateQueries({ queryKey: ['formularios-resumen'] });
     },
     onError: (error: Error) => {
-      toast.error(error.message);
+      showToast.error(error.message);
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: formulariosApi.delete,
     onSuccess: (response) => {
-      toast.success(response.message);
+      showToast.success(response.message);
       setDeleteDialog({ isOpen: false, id: null });
       refetchFormularios();
       queryClient.invalidateQueries({ queryKey: ['formularios-resumen'] });
     },
     onError: (error: Error) => {
-      toast.error(error.message);
+      showToast.error(error.message);
     },
   });
 
@@ -148,8 +153,8 @@ const Formularios: React.FC = () => {
     mutationFn: ({ ids, fecha }: { ids: number[]; fecha: string }) =>
       formulariosApi.pagarVencimientos(ids, fecha),
     onSuccess: (response) => {
-      toast.success(response.message);
-      toast.success(`Gasto CARCOS creado por ${formatCurrency(response.data.total_pagado)}`);
+      showToast.success(response.message);
+      showToast.success(`Gasto CARCOS creado por ${formatCurrency(response.data.total_pagado)}`);
       setPagarDialog({ isOpen: false, vencimientos: [] });
       setVencimientosSeleccionados(new Set());
       refetchFormularios();
@@ -157,23 +162,23 @@ const Formularios: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['gastos-registrales'] });
     },
     onError: (error: Error) => {
-      toast.error(error.message);
+      showToast.error(error.message);
     },
   });
 
   const importarCSVMutation = useMutation({
     mutationFn: (contenido: string) => formulariosApi.importarCSV(contenido),
     onSuccess: (data) => {
-      toast.success(`Importación completada: ${data.insertados} formularios insertados`);
+      showToast.success(`Importación completada: ${data.insertados} formularios insertados`);
       if (data.errores.length > 0) {
-        toast.error(`${data.errores.length} errores encontrados. Revisa la consola.`);
+        showToast.error(`${data.errores.length} errores encontrados. Revisa la consola.`);
         console.error('Errores de importación:', data.errores);
       }
       refetchFormularios();
       queryClient.invalidateQueries({ queryKey: ['formularios-resumen'] });
     },
     onError: (error: Error) => {
-      toast.error(`Error al importar: ${error.message}`);
+      showToast.error(`Error al importar: ${error.message}`);
     },
   });
 
@@ -194,7 +199,7 @@ const Formularios: React.FC = () => {
     if (!file) return;
 
     if (!file.name.endsWith('.csv')) {
-      toast.error('Por favor seleccioná un archivo CSV');
+      showToast.error('Por favor seleccioná un archivo CSV');
       return;
     }
 
@@ -202,7 +207,7 @@ const Formularios: React.FC = () => {
       const contenido = await file.text();
       importarCSVMutation.mutate(contenido);
     } catch (error) {
-      toast.error('Error al leer el archivo');
+      showToast.error('Error al leer el archivo');
     } finally {
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
@@ -249,12 +254,12 @@ const Formularios: React.FC = () => {
   const handleSave = () => {
     // Validaciones
     if (!formData.numero.trim()) {
-      toast.error('El número de formulario es requerido');
+      showToast.error('El número de formulario es requerido');
       return;
     }
 
     if (formData.monto <= 0) {
-      toast.error('El monto debe ser mayor a 0');
+      showToast.error('El monto debe ser mayor a 0');
       return;
     }
 
@@ -262,7 +267,7 @@ const Formularios: React.FC = () => {
     // Los 3 vencimientos son opciones de pago (con recargos), no cuotas que suman
     const primerVencimiento = formData.vencimientos[0].monto;
     if (Math.abs(primerVencimiento - formData.monto) > 0.01) {
-      toast.error(
+      showToast.error(
         `El monto total (${formatCurrency(formData.monto)}) debe ser igual al monto del primer vencimiento (${formatCurrency(primerVencimiento)})`
       );
       return;
@@ -270,22 +275,22 @@ const Formularios: React.FC = () => {
 
     for (const venc of formData.vencimientos) {
       if (!venc.fecha_vencimiento) {
-        toast.error(`La fecha del vencimiento ${venc.numero_vencimiento} es requerida`);
+        showToast.error(`La fecha del vencimiento ${venc.numero_vencimiento} es requerida`);
         return;
       }
       if (venc.monto <= 0) {
-        toast.error(`El monto del vencimiento ${venc.numero_vencimiento} debe ser mayor a 0`);
+        showToast.error(`El monto del vencimiento ${venc.numero_vencimiento} debe ser mayor a 0`);
         return;
       }
     }
 
     // Validar que el segundo y tercer vencimiento sean >= al primero (tienen recargos)
     if (formData.vencimientos[1].monto < formData.vencimientos[0].monto) {
-      toast.error('El segundo vencimiento debe ser mayor o igual al primero');
+      showToast.error('El segundo vencimiento debe ser mayor o igual al primero');
       return;
     }
     if (formData.vencimientos[2].monto < formData.vencimientos[1].monto) {
-      toast.error('El tercer vencimiento debe ser mayor o igual al segundo');
+      showToast.error('El tercer vencimiento debe ser mayor o igual al segundo');
       return;
     }
 
@@ -316,7 +321,7 @@ const Formularios: React.FC = () => {
 
   const handlePagarSeleccionados = () => {
     if (vencimientosSeleccionados.size === 0) {
-      toast.error('Debe seleccionar al menos un vencimiento');
+      showToast.error('Debe seleccionar al menos un vencimiento');
       return;
     }
 
@@ -385,12 +390,12 @@ const Formularios: React.FC = () => {
   formulariosActivos.sort((a, b) => {
     // Encontrar el vencimiento pendiente más antiguo de cada formulario
     const vencimientoPendienteA = a.vencimientos
-      .filter(v => v.estado === 'PENDIENTE')
-      .sort((v1, v2) => new Date(v1.fecha_vencimiento).getTime() - new Date(v2.fecha_vencimiento).getTime())[0];
+      .filter((v: Vencimiento) => v.estado === 'PENDIENTE')
+      .sort((v1: Vencimiento, v2: Vencimiento) => new Date(v1.fecha_vencimiento).getTime() - new Date(v2.fecha_vencimiento).getTime())[0];
 
     const vencimientoPendienteB = b.vencimientos
-      .filter(v => v.estado === 'PENDIENTE')
-      .sort((v1, v2) => new Date(v1.fecha_vencimiento).getTime() - new Date(v2.fecha_vencimiento).getTime())[0];
+      .filter((v: Vencimiento) => v.estado === 'PENDIENTE')
+      .sort((v1: Vencimiento, v2: Vencimiento) => new Date(v1.fecha_vencimiento).getTime() - new Date(v2.fecha_vencimiento).getTime())[0];
 
     // Si no tienen vencimientos pendientes, usar el primer vencimiento
     const fechaA = vencimientoPendienteA ? new Date(vencimientoPendienteA.fecha_vencimiento) : new Date(a.vencimientos[0].fecha_vencimiento);
@@ -399,7 +404,18 @@ const Formularios: React.FC = () => {
     return fechaA.getTime() - fechaB.getTime(); // Más antigua primero
   });
 
-  const formulariosAMostrar = tabActivo === 'activos' ? formulariosActivos : formulariosHistoricos;
+  const formulariosFiltered = tabActivo === 'activos' ? formulariosActivos : formulariosHistoricos;
+
+  // Aplicar paginación
+  const totalItems = formulariosFiltered.length;
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const formulariosAMostrar = formulariosFiltered.slice(startIndex, endIndex);
+
+  // Reset page cuando cambian filtros o tab
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [tabActivo, filtros.numero, filtros.descripcion, filtros.montoDesde, filtros.montoHasta]);
 
   return (
     <div className="space-y-6">
@@ -433,7 +449,7 @@ const Formularios: React.FC = () => {
       </div>
 
       {/* Resumen */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <Card>
           <div className="flex items-center gap-3">
             <FileText className="h-8 w-8 text-primary" />
@@ -444,6 +460,21 @@ const Formularios: React.FC = () => {
               </p>
               <p className="text-xs text-text-muted">
                 {resumen?.total_vencimientos || 0} vencimientos
+              </p>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="bg-error-light border-error">
+          <div className="flex items-center gap-3">
+            <DollarSign className="h-8 w-8 text-error" />
+            <div>
+              <p className="text-sm text-text-secondary">Saldo Pendiente</p>
+              <p className="text-2xl font-bold text-error">
+                {formatCurrency(resumen?.saldo_pendiente_formularios || 0)}
+              </p>
+              <p className="text-xs text-text-muted">
+                {resumen?.formularios_con_deuda || 0} formularios con deuda
               </p>
             </div>
           </div>
@@ -605,7 +636,7 @@ const Formularios: React.FC = () => {
         {/* Mostrar resultados y botón limpiar */}
         <div className="flex items-center justify-between mt-4 pt-4 border-t border-border">
           <p className="text-sm text-text-secondary">
-            Mostrando {formulariosAMostrar.length} formulario(s)
+            Total: {totalItems} formulario(s) {totalItems > itemsPerPage && `(mostrando ${formulariosAMostrar.length})`}
           </p>
           {(filtros.numero || filtros.descripcion || filtros.montoDesde || filtros.montoHasta) && (
             <Button
@@ -763,6 +794,17 @@ const Formularios: React.FC = () => {
             </tbody>
           </table>
         </div>
+
+        {/* Paginación */}
+        {totalItems > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalItems={totalItems}
+            itemsPerPage={itemsPerPage}
+            onPageChange={setCurrentPage}
+            onItemsPerPageChange={setItemsPerPage}
+          />
+        )}
       </Card>
 
       {/* Modal Formulario */}

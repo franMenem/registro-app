@@ -201,7 +201,7 @@ export class EfectivoService {
       // Si es un gasto con cuenta asociada, eliminar también el movimiento de la cuenta corriente
       if (movimiento.tipo === 'GASTO' && movimiento.cuenta_id) {
         const cuentasService = require('./cuentas.service').default;
-        
+
         // Buscar el movimiento en la cuenta corriente
         const movimientoCC = db
           .prepare(
@@ -213,10 +213,41 @@ export class EfectivoService {
         if (movimientoCC) {
           // Eliminar el movimiento de la cuenta
           db.prepare('DELETE FROM movimientos_cc WHERE id = ?').run(movimientoCC.id);
-          
+
           // Recalcular saldos
           cuentasService.recalcularSaldos(movimiento.cuenta_id);
           console.log(`✅ Movimiento eliminado de cuenta ${movimiento.cuenta_id}`);
+        }
+      }
+
+      // Si es un GASTO, buscar y eliminar registros relacionados en gastos_registrales o gastos_personales
+      if (movimiento.tipo === 'GASTO') {
+        // Intentar eliminar de gastos_registrales (por fecha, monto y origen MANUAL/EFECTIVO)
+        const gastoRegistral = db
+          .prepare(
+            `SELECT id FROM gastos_registrales
+             WHERE fecha = ? AND monto = ? AND origen = 'MANUAL'
+             ORDER BY created_at DESC LIMIT 1`
+          )
+          .get(movimiento.fecha, movimiento.monto) as any;
+
+        if (gastoRegistral) {
+          db.prepare('DELETE FROM gastos_registrales WHERE id = ?').run(gastoRegistral.id);
+          console.log(`✅ Gasto registral ${gastoRegistral.id} eliminado automáticamente`);
+        }
+
+        // Intentar eliminar de gastos_personales
+        const gastoPersonal = db
+          .prepare(
+            `SELECT id FROM gastos_personales
+             WHERE fecha = ? AND monto = ?
+             ORDER BY created_at DESC LIMIT 1`
+          )
+          .get(movimiento.fecha, movimiento.monto) as any;
+
+        if (gastoPersonal) {
+          db.prepare('DELETE FROM gastos_personales WHERE id = ?').run(gastoPersonal.id);
+          console.log(`✅ Gasto personal ${gastoPersonal.id} eliminado automáticamente`);
         }
       }
 

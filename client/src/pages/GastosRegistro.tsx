@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import toast from 'react-hot-toast';
+import { showToast } from '@/components/ui/Toast';
 import {
   Plus,
   Edit,
@@ -189,7 +189,7 @@ const GastosRegistro: React.FC = () => {
   const createGastoMutation = useMutation({
     mutationFn: gastosRegistralesApi.create,
     onSuccess: (response) => {
-      toast.success(response.message);
+      showToast.success(response.message);
       setModalGasto({ isOpen: false, gasto: null });
       resetFormGasto();
       refetchGastos();
@@ -197,7 +197,7 @@ const GastosRegistro: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['gastos-registrales-pendientes'] });
     },
     onError: (error: Error) => {
-      toast.error(error.message);
+      showToast.error(error.message);
     },
   });
 
@@ -205,27 +205,27 @@ const GastosRegistro: React.FC = () => {
     mutationFn: ({ id, datos }: { id: number; datos: any }) =>
       gastosRegistralesApi.update(id, datos),
     onSuccess: (response) => {
-      toast.success(response.message);
+      showToast.success(response.message);
       setModalGasto({ isOpen: false, gasto: null });
       resetFormGasto();
       refetchGastos();
       queryClient.invalidateQueries({ queryKey: ['gastos-registrales-resumen'] });
     },
     onError: (error: Error) => {
-      toast.error(error.message);
+      showToast.error(error.message);
     },
   });
 
   const deleteGastoMutation = useMutation({
     mutationFn: gastosRegistralesApi.delete,
     onSuccess: (response) => {
-      toast.success(response.message);
+      showToast.success(response.message);
       setDeleteDialog({ isOpen: false, id: null, tipo: 'gasto' });
       refetchGastos();
       queryClient.invalidateQueries({ queryKey: ['gastos-registrales-resumen'] });
     },
     onError: (error: Error) => {
-      toast.error(error.message);
+      showToast.error(error.message);
     },
   });
 
@@ -233,16 +233,16 @@ const GastosRegistro: React.FC = () => {
     mutationFn: (contenido: string) => gastosRegistralesApi.importarCSV(contenido),
     onSuccess: (data) => {
       const { insertados, errores } = data;
-      toast.success(`Importación completada: ${insertados} gastos insertados`);
+      showToast.success(`Importación completada: ${insertados} gastos insertados`);
       if (errores.length > 0) {
-        toast.error(`${errores.length} errores encontrados. Revisa la consola.`);
+        showToast.error(`${errores.length} errores encontrados. Revisa la consola.`);
         console.error('Errores de importación:', errores);
       }
       refetchGastos();
       queryClient.invalidateQueries({ queryKey: ['gastos-registrales-resumen'] });
     },
     onError: (error: Error) => {
-      toast.error(`Error al importar: ${error.message}`);
+      showToast.error(`Error al importar: ${error.message}`);
     },
   });
 
@@ -250,13 +250,13 @@ const GastosRegistro: React.FC = () => {
   const createAdelantoMutation = useMutation({
     mutationFn: adelantosApi.create,
     onSuccess: (response) => {
-      toast.success(response.message);
+      showToast.success(response.message);
       setModalAdelanto({ isOpen: false, adelanto: null });
       resetFormAdelanto();
       queryClient.invalidateQueries({ queryKey: ['adelantos-resumen'] });
     },
     onError: (error: Error) => {
-      toast.error(error.message);
+      showToast.error(error.message);
     },
   });
 
@@ -264,24 +264,24 @@ const GastosRegistro: React.FC = () => {
     mutationFn: ({ id, fecha }: { id: number; fecha: string }) =>
       adelantosApi.marcarDescontado(id, fecha),
     onSuccess: (response) => {
-      toast.success(response.message);
+      showToast.success(response.message);
       setDescontarDialog({ isOpen: false, adelantoId: null });
       queryClient.invalidateQueries({ queryKey: ['adelantos-resumen'] });
     },
     onError: (error: Error) => {
-      toast.error(error.message);
+      showToast.error(error.message);
     },
   });
 
   const deleteAdelantoMutation = useMutation({
     mutationFn: adelantosApi.delete,
     onSuccess: (response) => {
-      toast.success(response.message);
+      showToast.success(response.message);
       setDeleteDialog({ isOpen: false, id: null, tipo: 'adelanto' });
       queryClient.invalidateQueries({ queryKey: ['adelantos-resumen'] });
     },
     onError: (error: Error) => {
-      toast.error(error.message);
+      showToast.error(error.message);
     },
   });
 
@@ -321,7 +321,7 @@ const GastosRegistro: React.FC = () => {
     if (!file) return;
 
     if (!file.name.endsWith('.csv')) {
-      toast.error('Por favor seleccioná un archivo CSV');
+      showToast.error('Por favor seleccioná un archivo CSV');
       return;
     }
 
@@ -329,7 +329,7 @@ const GastosRegistro: React.FC = () => {
       const contenido = await file.text();
       importarCSVMutation.mutate(contenido);
     } catch (error) {
-      toast.error('Error al leer el archivo');
+      showToast.error('Error al leer el archivo');
     } finally {
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
@@ -374,7 +374,7 @@ const GastosRegistro: React.FC = () => {
 
   const handleSaveGasto = () => {
     if (formGasto.monto <= 0) {
-      toast.error('El monto debe ser mayor a 0');
+      showToast.error('El monto debe ser mayor a 0');
       return;
     }
 
@@ -387,7 +387,7 @@ const GastosRegistro: React.FC = () => {
         (numBoletas >= 4 ? (formGasto.boleta4 || 0) : 0);
 
       if (Math.abs(totalBoletas - formGasto.monto) > 0.01) {
-        toast.error(`La suma de las boletas (${formatCurrency(totalBoletas)}) debe ser igual al monto total (${formatCurrency(formGasto.monto)})`);
+        showToast.error(`La suma de las boletas (${formatCurrency(totalBoletas)}) debe ser igual al monto total (${formatCurrency(formGasto.monto)})`);
         return;
       }
     }
@@ -404,7 +404,7 @@ const GastosRegistro: React.FC = () => {
 
   const handleSaveAdelanto = () => {
     if (formAdelanto.monto <= 0) {
-      toast.error('El monto debe ser mayor a 0');
+      showToast.error('El monto debe ser mayor a 0');
       return;
     }
 

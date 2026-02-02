@@ -10,7 +10,7 @@ import { Table, TableColumn } from '@/components/tables/Table';
 import { dashboardApi, controlesApi } from '@/services/api';
 import { formatCurrency, formatDate } from '@/utils/format';
 import { ControlPendiente } from '@/types';
-import toast from 'react-hot-toast';
+import { showToast } from '@/components/ui/Toast';
 
 const Dashboard: React.FC = () => {
   const queryClient = useQueryClient();
@@ -47,7 +47,7 @@ const Dashboard: React.FC = () => {
       }
     },
     onSuccess: () => {
-      toast.success('✅ Control marcado como PAGADO exitosamente. El control ha sido removido de la lista de pendientes.', {
+      showToast.success('✅ Control marcado como PAGADO exitosamente. El control ha sido removido de la lista de pendientes.', {
         duration: 6000,
       });
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
@@ -57,7 +57,7 @@ const Dashboard: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['controles-quincenales'] });
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Error al marcar como pagado');
+      showToast.error(error.message || 'Error al marcar como pagado');
     },
   });
 
@@ -96,7 +96,7 @@ const Dashboard: React.FC = () => {
             className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
               row.concepto_tipo === 'RENTAS'
                 ? 'bg-primary-light text-primary'
-                : 'bg-secondary-light text-secondary'
+                : 'bg-success-light text-success'
             }`}
           >
             {row.concepto_tipo}
@@ -169,7 +169,7 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <MetricCard
           label="Total RENTAS Hoy"
           value={statsLoading ? '...' : formatCurrency(stats?.total_rentas_hoy || 0)}
@@ -183,6 +183,13 @@ const Dashboard: React.FC = () => {
           iconColor="text-success"
         />
         <MetricCard
+          label="Arancel del Mes"
+          value={statsLoading ? '...' : formatCurrency(stats?.total_arancel_mes || 0)}
+          icon={Calendar}
+          iconColor="text-info"
+          subtitle={`${new Date().toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })}`}
+        />
+        <MetricCard
           label="Controles Semanales Pendientes"
           value={statsLoading ? '...' : formatCurrency(stats?.total_semanal_pendiente || 0)}
           icon={Clock}
@@ -193,6 +200,13 @@ const Dashboard: React.FC = () => {
           value={statsLoading ? '...' : formatCurrency(stats?.total_quincenal_pendiente || 0)}
           icon={Calendar}
           iconColor="text-secondary"
+        />
+        <MetricCard
+          label="Efectivo en Mano"
+          value={statsLoading ? '...' : formatCurrency(stats?.efectivo_en_mano || 0)}
+          icon={Wallet}
+          iconColor="text-success"
+          subtitle="Disponible"
         />
       </div>
 

@@ -24,6 +24,7 @@ import migracionRoutes from './routes/migracion.routes';
 import efectivoRoutes from './routes/efectivo.routes';
 import planillasRoutes from './routes/planillas.routes';
 import reportesRoutes from './routes/reportes.routes';
+import gastosMiosRoutes from './routes/gastos-mios.routes';
 
 // Load environment variables
 dotenv.config();
@@ -69,6 +70,7 @@ app.use('/api/migracion', migracionRoutes);
 app.use('/api/efectivo', efectivoRoutes);
 app.use('/api/planillas', planillasRoutes);
 app.use('/api/reportes', reportesRoutes);
+app.use('/api/gastos-mios', gastosMiosRoutes);
 
 // 404 handler
 app.use((req, res) => {

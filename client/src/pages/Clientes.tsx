@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import toast from 'react-hot-toast';
+import { showToast } from '@/components/ui/Toast';
 import {
   Plus,
   Edit,
@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Modal } from '@/components/ui/Modal';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { Pagination } from '@/components/ui/Pagination';
 import { CUITInput } from '@/components/ui/CUITInput';
 import { clientesApi } from '@/services/api';
 
@@ -45,6 +46,10 @@ interface Resumen {
 const Clientes: React.FC = () => {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Paginación
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(50);
 
   // Modal states
   const [modalCliente, setModalCliente] = useState<{
@@ -88,14 +93,14 @@ const Clientes: React.FC = () => {
   const createClienteMutation = useMutation({
     mutationFn: clientesApi.create,
     onSuccess: (response) => {
-      toast.success(response.message);
+      showToast.success(response.message);
       setModalCliente({ isOpen: false, cliente: null });
       resetFormCliente();
       queryClient.invalidateQueries({ queryKey: ['clientes'] });
       queryClient.invalidateQueries({ queryKey: ['clientes-resumen'] });
     },
     onError: (error: Error) => {
-      toast.error(error.message);
+      showToast.error(error.message);
     },
   });
 
@@ -103,27 +108,27 @@ const Clientes: React.FC = () => {
     mutationFn: ({ id, datos }: { id: number; datos: any }) =>
       clientesApi.update(id, datos),
     onSuccess: (response) => {
-      toast.success(response.message);
+      showToast.success(response.message);
       setModalCliente({ isOpen: false, cliente: null });
       resetFormCliente();
       queryClient.invalidateQueries({ queryKey: ['clientes'] });
       queryClient.invalidateQueries({ queryKey: ['clientes-resumen'] });
     },
     onError: (error: Error) => {
-      toast.error(error.message);
+      showToast.error(error.message);
     },
   });
 
   const deleteClienteMutation = useMutation({
     mutationFn: clientesApi.delete,
     onSuccess: (response) => {
-      toast.success(response.message);
+      showToast.success(response.message);
       setDeleteDialog({ isOpen: false, id: null });
       queryClient.invalidateQueries({ queryKey: ['clientes'] });
       queryClient.invalidateQueries({ queryKey: ['clientes-resumen'] });
     },
     onError: (error: Error) => {
-      toast.error(error.message);
+      showToast.error(error.message);
     },
   });
 
@@ -155,7 +160,7 @@ const Clientes: React.FC = () => {
       const cliente = await clientesApi.getConDepositos(id);
       setDetailModal({ isOpen: true, cliente });
     } catch (error: any) {
-      toast.error(error.message || 'Error al cargar depósitos');
+      showToast.error(error.message || 'Error al cargar depósitos');
     }
   };
 
@@ -177,7 +182,7 @@ const Clientes: React.FC = () => {
 
   const handleGuardarCliente = () => {
     if (!formCliente.cuit || !formCliente.razon_social) {
-      toast.error('CUIT y razón social son requeridos');
+      showToast.error('CUIT y razón social son requeridos');
       return;
     }
 
@@ -192,6 +197,17 @@ const Clientes: React.FC = () => {
       createClienteMutation.mutate(formCliente);
     }
   };
+
+  // Aplicar paginación
+  const totalItems = clientes.length;
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const clientesAMostrar = clientes.slice(startIndex, endIndex);
+
+  // Reset page cuando cambia searchTerm
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   return (
     <div className="space-y-6 p-6">
@@ -291,14 +307,14 @@ const Clientes: React.FC = () => {
               </tr>
             </thead>
             <tbody className="bg-background divide-y divide-border">
-              {clientes.length === 0 ? (
+              {clientesAMostrar.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="px-6 py-8 text-center text-text-secondary">
                     {searchTerm ? 'No se encontraron clientes' : 'No hay clientes registrados'}
                   </td>
                 </tr>
               ) : (
-                clientes.map((cliente: Cliente) => (
+                clientesAMostrar.map((cliente: Cliente) => (
                   <tr key={cliente.id} className="hover:bg-background-secondary/50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="px-3 py-1 bg-primary/10 text-primary rounded-md text-sm font-medium font-mono">
@@ -349,6 +365,17 @@ const Clientes: React.FC = () => {
             </tbody>
           </table>
         </div>
+
+        {/* Paginación */}
+        {totalItems > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalItems={totalItems}
+            itemsPerPage={itemsPerPage}
+            onPageChange={setCurrentPage}
+            onItemsPerPageChange={setItemsPerPage}
+          />
+        )}
       </Card>
 
       {/* Modal Crear/Editar Cliente */}

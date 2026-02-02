@@ -1,11 +1,22 @@
-import { startOfWeek, endOfWeek, addDays, startOfMonth, endOfMonth, format, getDay } from 'date-fns';
+import { startOfWeek, endOfWeek, addDays, startOfMonth, endOfMonth, format, getDay, parseISO } from 'date-fns';
 
 /**
  * Calcula el rango de una semana laboral (Lunes a Viernes)
+ * IMPORTANTE: Agrega tiempo medio día para evitar problemas de zona horaria
  */
 export const calcularSemanaLaboral = (fecha: Date): { fechaInicio: string; fechaFin: string } => {
+  // Si la fecha viene como string YYYY-MM-DD, agregarle tiempo medio día
+  // para evitar problemas de zona horaria
+  let fechaAjustada = fecha;
+  if (typeof fecha === 'string' || fecha instanceof String) {
+    fechaAjustada = parseISO(fecha + 'T12:00:00');
+  } else {
+    // Si es Date object, crear uno nuevo con tiempo medio día
+    fechaAjustada = new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate(), 12, 0, 0);
+  }
+
   // Obtener lunes de la semana
-  const lunes = startOfWeek(fecha, { weekStartsOn: 1 });
+  const lunes = startOfWeek(fechaAjustada, { weekStartsOn: 1 });
 
   // Obtener viernes de la semana
   const viernes = addDays(lunes, 4);

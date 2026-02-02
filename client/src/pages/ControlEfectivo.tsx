@@ -9,7 +9,7 @@ import { Select } from '@/components/ui/Select';
 import { Table, TableColumn } from '@/components/tables/Table';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { formatCurrency, formatDate } from '@/utils/format';
-import toast from 'react-hot-toast';
+import { showToast } from '@/components/ui/Toast';
 import api from '@/services/api';
 import { CuentaCorriente } from '@/types';
 
@@ -116,7 +116,7 @@ const ControlEfectivo: React.FC = () => {
       return response.data;
     },
     onSuccess: () => {
-      toast.success('Saldo inicial actualizado');
+      showToast.success('Saldo inicial actualizado');
       queryClient.invalidateQueries({ queryKey: ['efectivo-config'] });
       queryClient.invalidateQueries({ queryKey: ['efectivo-stats'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
@@ -124,7 +124,7 @@ const ControlEfectivo: React.FC = () => {
       setNuevoSaldoInicial('');
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Error al actualizar saldo inicial');
+      showToast.error(error.message || 'Error al actualizar saldo inicial');
     },
   });
 
@@ -135,16 +135,22 @@ const ControlEfectivo: React.FC = () => {
       return response.data;
     },
     onSuccess: () => {
-      toast.success('Movimiento registrado exitosamente');
+      showToast.success('Movimiento registrado exitosamente');
       queryClient.invalidateQueries({ queryKey: ['movimientos-efectivo'] });
       queryClient.invalidateQueries({ queryKey: ['efectivo-stats'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
       queryClient.invalidateQueries({ queryKey: ['cuentas'] });
       queryClient.invalidateQueries({ queryKey: ['movimientos-cuenta'] });
+      // Invalidar gastos personales y registrales (si creó un gasto de esos tipos)
+      queryClient.invalidateQueries({ queryKey: ['gastos-personales'] });
+      queryClient.invalidateQueries({ queryKey: ['gastos-personales-resumen'] });
+      queryClient.invalidateQueries({ queryKey: ['gastos-personales-pendientes'] });
+      queryClient.invalidateQueries({ queryKey: ['gastos-registrales'] });
+      queryClient.invalidateQueries({ queryKey: ['gastos-registrales-resumen'] });
       resetForm();
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Error al registrar movimiento');
+      showToast.error(error.message || 'Error al registrar movimiento');
     },
   });
 
@@ -154,22 +160,28 @@ const ControlEfectivo: React.FC = () => {
       await api.delete(`/efectivo/movimientos/${id}`);
     },
     onSuccess: () => {
-      toast.success('Movimiento eliminado');
+      showToast.success('Movimiento eliminado');
       queryClient.invalidateQueries({ queryKey: ['movimientos-efectivo'] });
       queryClient.invalidateQueries({ queryKey: ['efectivo-stats'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
       queryClient.invalidateQueries({ queryKey: ['cuentas'] });
       queryClient.invalidateQueries({ queryKey: ['movimientos-cuenta'] });
+      // Invalidar gastos personales y registrales (si eliminó un gasto de esos tipos)
+      queryClient.invalidateQueries({ queryKey: ['gastos-personales'] });
+      queryClient.invalidateQueries({ queryKey: ['gastos-personales-resumen'] });
+      queryClient.invalidateQueries({ queryKey: ['gastos-personales-pendientes'] });
+      queryClient.invalidateQueries({ queryKey: ['gastos-registrales'] });
+      queryClient.invalidateQueries({ queryKey: ['gastos-registrales-resumen'] });
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Error al eliminar movimiento');
+      showToast.error(error.message || 'Error al eliminar movimiento');
     },
   });
 
   const handleUpdateSaldoInicial = () => {
     const valor = parseFloat(nuevoSaldoInicial);
     if (isNaN(valor) || valor < 0) {
-      toast.error('Ingrese un valor válido');
+      showToast.error('Ingrese un valor válido');
       return;
     }
     updateSaldoInicialMutation.mutate(valor);
@@ -180,21 +192,21 @@ const ControlEfectivo: React.FC = () => {
 
     const monto = parseFloat(formData.monto);
     if (isNaN(monto) || monto <= 0) {
-      toast.error('El monto debe ser mayor a 0');
+      showToast.error('El monto debe ser mayor a 0');
       return;
     }
 
     // Validar concepto según categoría
     if (formData.tipo === 'GASTO') {
       if (formData.categoria === 'GENERICO' && !formData.concepto.trim()) {
-        toast.error('El concepto es requerido');
+        showToast.error('El concepto es requerido');
         return;
       }
       if (
         (formData.categoria === 'REGISTRAL' || formData.categoria === 'PERSONAL') &&
         !formData.concepto_especifico
       ) {
-        toast.error('Debe seleccionar un concepto');
+        showToast.error('Debe seleccionar un concepto');
         return;
       }
     }

@@ -1,4 +1,4 @@
-import db from '../db/database';
+import db, { transaction } from '../db/database';
 
 /**
  * Servicio para gestión de cuentas corrientes
@@ -16,34 +16,26 @@ export class CuentasService {
     monto: number,
     movimientoOrigenId?: number
   ): Promise<void> {
-    // Obtener saldo actual de la cuenta
+    // Verificar que la cuenta existe
     const cuenta = db
-      .prepare('SELECT saldo_actual FROM cuentas_corrientes WHERE id = ?')
+      .prepare('SELECT id FROM cuentas_corrientes WHERE id = ?')
       .get(cuentaId) as any;
 
     if (!cuenta) {
       throw new Error('Cuenta no encontrada');
     }
 
-    // Calcular nuevo saldo
-    const nuevoSaldo =
-      tipoMovimiento === 'INGRESO'
-        ? cuenta.saldo_actual + monto
-        : cuenta.saldo_actual - monto;
-
-    // Insertar movimiento
+    // Insertar movimiento con saldo temporal (será recalculado)
     db.prepare(
       `INSERT INTO movimientos_cc
        (cuenta_id, fecha, tipo_movimiento, concepto, monto, saldo_resultante, movimiento_origen_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`
-    ).run(cuentaId, fecha, tipoMovimiento, concepto, monto, nuevoSaldo, movimientoOrigenId);
+       VALUES (?, ?, ?, ?, ?, 0, ?)`
+    ).run(cuentaId, fecha, tipoMovimiento, concepto, monto, movimientoOrigenId);
 
-    // Actualizar saldo de la cuenta
-    db.prepare(
-      `UPDATE cuentas_corrientes
-       SET saldo_actual = ?
-       WHERE id = ?`
-    ).run(nuevoSaldo, cuentaId);
+    // Recalcular todos los saldos desde el principio
+    // Esto asegura que los saldos sean correctos incluso si se inserta
+    // un movimiento con fecha anterior a otros existentes
+    this.recalcularSaldos(cuentaId);
   }
 
   /**
@@ -110,7 +102,7 @@ export class CuentasService {
    */
   async actualizarMovimiento(
     movimientoId: number,
-    datos: { monto?: number; concepto?: string }
+    datos: { monto?: number; concepto?: string; fecha?: string }
   ): Promise<void> {
     // Obtener el movimiento actual
     const movimiento = db
@@ -122,7 +114,7 @@ export class CuentasService {
     }
 
     // Si solo se actualiza el concepto, no hay que recalcular saldos
-    if (datos.concepto && !datos.monto) {
+    if (datos.concepto && !datos.monto && !datos.fecha) {
       db.prepare('UPDATE movimientos_cc SET concepto = ? WHERE id = ?').run(
         datos.concepto,
         movimientoId
@@ -130,16 +122,34 @@ export class CuentasService {
       return;
     }
 
-    // Si se actualiza el monto, hay que recalcular todos los saldos
-    if (datos.monto !== undefined) {
+    // Si se actualiza el monto o la fecha, hay que recalcular todos los saldos
+    if (datos.monto !== undefined || datos.fecha !== undefined) {
       // Actualizar el movimiento
-      db.prepare('UPDATE movimientos_cc SET monto = ?, concepto = ? WHERE id = ?').run(
-        datos.monto,
-        datos.concepto || movimiento.concepto,
-        movimientoId
+      const updateFields = [];
+      const updateValues = [];
+
+      if (datos.monto !== undefined) {
+        updateFields.push('monto = ?');
+        updateValues.push(datos.monto);
+      }
+
+      if (datos.concepto) {
+        updateFields.push('concepto = ?');
+        updateValues.push(datos.concepto);
+      }
+
+      if (datos.fecha) {
+        updateFields.push('fecha = ?');
+        updateValues.push(datos.fecha);
+      }
+
+      updateValues.push(movimientoId);
+
+      db.prepare(`UPDATE movimientos_cc SET ${updateFields.join(', ')} WHERE id = ?`).run(
+        ...updateValues
       );
 
-      // Recalcular saldos desde este movimiento en adelante
+      // Recalcular saldos desde el inicio (porque la fecha puede cambiar el orden)
       this.recalcularSaldos(movimiento.cuenta_id);
     }
   }
@@ -167,39 +177,49 @@ export class CuentasService {
 
   /**
    * Recalcula todos los saldos de una cuenta desde el principio
+   * Optimizado con window functions para evitar N queries
    */
-  private recalcularSaldos(cuentaId: number): void {
-    // Obtener todos los movimientos ordenados cronológicamente
-    const movimientos = db
-      .prepare(
-        `SELECT * FROM movimientos_cc
-         WHERE cuenta_id = ?
-         ORDER BY fecha ASC, id ASC`
-      )
-      .all(cuentaId) as any[];
+  recalcularSaldos(cuentaId: number): void {
+    transaction(() => {
+      // Recalcular todos los saldos usando window function (1 query en lugar de N)
+      db.prepare(`
+        WITH movimientos_ordenados AS (
+          SELECT
+            id,
+            ROW_NUMBER() OVER (ORDER BY fecha, id) as rn,
+            monto,
+            tipo_movimiento
+          FROM movimientos_cc
+          WHERE cuenta_id = ?
+        ),
+        saldos_calculados AS (
+          SELECT
+            id,
+            SUM(CASE WHEN tipo_movimiento = 'INGRESO' THEN monto ELSE -monto END)
+              OVER (ORDER BY rn) as nuevo_saldo
+          FROM movimientos_ordenados
+        )
+        UPDATE movimientos_cc
+        SET saldo_resultante = (
+          SELECT nuevo_saldo FROM saldos_calculados
+          WHERE saldos_calculados.id = movimientos_cc.id
+        )
+        WHERE cuenta_id = ?
+      `).run(cuentaId, cuentaId);
 
-    let saldoActual = 0;
+      // Actualizar saldo actual de la cuenta
+      const ultimoMovimiento = db
+        .prepare(
+          `SELECT saldo_resultante FROM movimientos_cc
+           WHERE cuenta_id = ? ORDER BY fecha DESC, id DESC LIMIT 1`
+        )
+        .get(cuentaId) as { saldo_resultante: number } | undefined;
 
-    // Recalcular cada saldo
-    for (const mov of movimientos) {
-      if (mov.tipo_movimiento === 'INGRESO') {
-        saldoActual += mov.monto;
-      } else {
-        saldoActual -= mov.monto;
-      }
-
-      // Actualizar saldo del movimiento
-      db.prepare('UPDATE movimientos_cc SET saldo_resultante = ? WHERE id = ?').run(
-        saldoActual,
-        mov.id
+      db.prepare('UPDATE cuentas_corrientes SET saldo_actual = ? WHERE id = ?').run(
+        ultimoMovimiento?.saldo_resultante || 0,
+        cuentaId
       );
-    }
-
-    // Actualizar saldo actual de la cuenta
-    db.prepare('UPDATE cuentas_corrientes SET saldo_actual = ? WHERE id = ?').run(
-      saldoActual,
-      cuentaId
-    );
+    });
   }
 }
 

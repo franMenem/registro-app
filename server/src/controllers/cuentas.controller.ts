@@ -106,7 +106,7 @@ export class CuentasController {
   async updateMovimiento(req: Request, res: Response) {
     try {
       const movimientoId = parseInt(req.params.movimientoId);
-      const { monto, concepto } = req.body;
+      const { monto, concepto, fecha } = req.body;
 
       // Validaciones
       if (monto !== undefined && monto <= 0) {
@@ -115,7 +115,7 @@ export class CuentasController {
         });
       }
 
-      await cuentasService.actualizarMovimiento(movimientoId, { monto, concepto });
+      await cuentasService.actualizarMovimiento(movimientoId, { monto, concepto, fecha });
 
       res.json({
         message: 'Movimiento actualizado exitosamente',
@@ -198,6 +198,35 @@ export class CuentasController {
       });
     }
   }
+
+
+  /**
+   * POST /api/cuentas/:id/recalcular-saldos
+   * Recalcula todos los saldos de una cuenta desde el principio
+   */
+  async recalcularSaldos(req: Request, res: Response) {
+    try {
+      const id = parseInt(req.params.id);
+
+      // Recalcular saldos
+      cuentasService.recalcularSaldos(id);
+
+      // Contar movimientos actualizados
+      const movimientos = cuentasService.getMovimientos(id, {});
+
+      res.json({
+        success: true,
+        message: `Saldos recalculados correctamente: ${movimientos.length} movimientos actualizados`,
+        movimientos_actualizados: movimientos.length,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Error al recalcular saldos',
+      });
+    }
+  }
+
 }
 
 export default new CuentasController();

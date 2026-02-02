@@ -64,6 +64,11 @@ const navItems: NavItem[] = [
     icon: <User className="h-5 w-5" />,
   },
   {
+    path: '/gastos-mios',
+    label: 'Mis Gastos',
+    icon: <Wallet className="h-5 w-5" />,
+  },
+  {
     path: '/posnet-diario',
     label: 'Control POSNET',
     icon: <BarChart2 className="h-5 w-5" />,

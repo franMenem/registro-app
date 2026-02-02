@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import toast from 'react-hot-toast';
+import { showToast } from '@/components/ui/Toast';
 import { Card } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { Trash2, AlertTriangle, Database } from 'lucide-react';
+import { Trash2, AlertTriangle, Database, RefreshCw, ArrowRightLeft } from 'lucide-react';
 import axios from 'axios';
+import { depositosApi, migracionApi } from '@/services/api';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
@@ -23,6 +24,37 @@ const Configuracion: React.FC = () => {
   const [anioGR, setAnioGR] = useState(new Date().getFullYear());
   const [mesGP, setMesGP] = useState(new Date().getMonth() + 1);
   const [anioGP, setAnioGP] = useState(new Date().getFullYear());
+
+  // Mutation para sincronizar depósitos
+  const sincronizarDepositosMutation = useMutation({
+    mutationFn: depositosApi.sincronizarMovimientos,
+    onSuccess: (data) => {
+      showToast.success(data.message);
+      queryClient.invalidateQueries({ queryKey: ['depositos'] });
+      queryClient.invalidateQueries({ queryKey: ['cuentas'] });
+    },
+    onError: (error: any) => {
+      showToast.error(error.message || 'Error al sincronizar depósitos');
+    },
+  });
+
+  // Mutation para migrar VEPs y ePagos
+  const migrarVepsEpagosMutation = useMutation({
+    mutationFn: migracionApi.migrarVepsYEpagos,
+    onSuccess: (data) => {
+      if (data.errores.length > 0) {
+        showToast.error(`Migración con errores. Revisa la consola para más detalles.`);
+        console.error('Errores de migración:', data.errores);
+      } else {
+        showToast.success(data.message);
+      }
+      queryClient.invalidateQueries({ queryKey: ['veps'] });
+      queryClient.invalidateQueries({ queryKey: ['epagos'] });
+    },
+    onError: (error: any) => {
+      showToast.error(error.message || 'Error al migrar VEPs y ePagos');
+    },
+  });
 
   // Mutation para limpiar datos
   const limpiarMutation = useMutation({
@@ -58,12 +90,12 @@ const Configuracion: React.FC = () => {
       return data;
     },
     onSuccess: (data) => {
-      toast.success(data.message);
+      showToast.success(data.message);
       queryClient.invalidateQueries();
       setConfirmDialog({ isOpen: false, title: '', message: '', action: '' });
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.error || error.message);
+      showToast.error(error.response?.data?.error || error.message);
     },
   });
 
@@ -96,6 +128,50 @@ const Configuracion: React.FC = () => {
           </p>
         </div>
       </div>
+
+      {/* Sincronización de Depósitos */}
+      <Card>
+        <div className="p-6">
+          <h2 className="text-xl font-bold text-text-primary mb-4 flex items-center gap-2">
+            <RefreshCw className="h-5 w-5" />
+            Sincronización de Depósitos
+          </h2>
+          <p className="text-text-secondary mb-6">
+            Si hay depósitos asignados a cuentas corrientes que no tienen su movimiento INGRESO correspondiente,
+            esta herramienta los creará automáticamente.
+          </p>
+          <button
+            onClick={() => sincronizarDepositosMutation.mutate()}
+            disabled={sincronizarDepositosMutation.isPending}
+            className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={`h-4 w-4 ${sincronizarDepositosMutation.isPending ? 'animate-spin' : ''}`} />
+            {sincronizarDepositosMutation.isPending ? 'Sincronizando...' : 'Sincronizar Depósitos'}
+          </button>
+        </div>
+      </Card>
+
+      {/* Migración de VEPs y ePagos */}
+      <Card>
+        <div className="p-6">
+          <h2 className="text-xl font-bold text-text-primary mb-4 flex items-center gap-2">
+            <ArrowRightLeft className="h-5 w-5" />
+            Migración de VEPs y ePagos
+          </h2>
+          <p className="text-text-secondary mb-6">
+            Si tenés movimientos de VEP o ePagos que no aparecen en las tablas de control,
+            esta herramienta los migrará automáticamente desde la tabla de movimientos.
+          </p>
+          <button
+            onClick={() => migrarVepsEpagosMutation.mutate()}
+            disabled={migrarVepsEpagosMutation.isPending}
+            className="flex items-center gap-2 px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
+          >
+            <ArrowRightLeft className={`h-4 w-4 ${migrarVepsEpagosMutation.isPending ? 'animate-spin' : ''}`} />
+            {migrarVepsEpagosMutation.isPending ? 'Migrando...' : 'Migrar VEPs y ePagos'}
+          </button>
+        </div>
+      </Card>
 
       {/* Limpieza General */}
       <Card>

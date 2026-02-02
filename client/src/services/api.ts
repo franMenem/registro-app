@@ -122,12 +122,26 @@ export const cuentasApi = {
     filters?: {
       fecha_desde?: string;
       fecha_hasta?: string;
+      tipo?: 'INGRESO' | 'EGRESO';
+      limit?: number;
+      offset?: number;
     }
-  ): Promise<MovimientoCC[]> => {
+  ): Promise<{ movimientos: MovimientoCC[]; total: number }> => {
     const { data } = await api.get<ApiResponse<MovimientoCC[]>>(`/cuentas/${id}/movimientos`, {
       params: filters,
     });
-    return data.data;
+
+    // Support both old and new response formats
+    if (Array.isArray(data.data)) {
+      // Old format - backward compatibility
+      return { movimientos: data.data, total: data.data.length };
+    } else {
+      // New format with pagination
+      return {
+        movimientos: (data.data as any).movimientos || data.data,
+        total: (data as any).pagination?.total || 0,
+      };
+    }
   },
 
   createMovimiento: async (
@@ -274,11 +288,27 @@ export const depositosApi = {
     cuenta_id?: number;
     fecha_desde?: string;
     fecha_hasta?: string;
-  }): Promise<import('@/types').Deposito[]> => {
-    const { data } = await api.get<import('@/types').ApiResponse<import('@/types').Deposito[]>>('/depositos', {
+    limit?: number;
+    offset?: number;
+  }): Promise<{ depositos: import('@/types').Deposito[]; total: number }> => {
+    const { data } = await api.get<any>('/depositos', {
       params: filters,
     });
-    return data.data;
+
+    // Handle pagination response
+    if (data.pagination) {
+      // New format with pagination
+      return {
+        depositos: data.data || [],
+        total: data.pagination.total || 0,
+      };
+    } else {
+      // Old format - backward compatibility
+      return {
+        depositos: Array.isArray(data.data) ? data.data : [],
+        total: Array.isArray(data.data) ? data.data.length : 0,
+      };
+    }
   },
 
   getById: async (id: number): Promise<import('@/types').Deposito> => {

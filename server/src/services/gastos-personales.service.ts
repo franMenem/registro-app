@@ -22,6 +22,7 @@ export class GastosPersonalesService {
     'Efectivo',
     'Patagonia',
     'Credicoop',
+    'TERE',
   ];
 
   /**
@@ -171,6 +172,20 @@ export class GastosPersonalesService {
       const gasto = this.obtenerPorId(id);
       if (!gasto) {
         throw new Error('Gasto personal no encontrado');
+      }
+
+      // Buscar y eliminar el movimiento relacionado en efectivo (si existe)
+      const movimientoEfectivo = db
+        .prepare(
+          `SELECT id FROM movimientos_efectivo
+           WHERE fecha = ? AND monto = ? AND tipo = 'GASTO'
+           ORDER BY created_at DESC LIMIT 1`
+        )
+        .get(gasto.fecha, gasto.monto) as any;
+
+      if (movimientoEfectivo) {
+        db.prepare('DELETE FROM movimientos_efectivo WHERE id = ?').run(movimientoEfectivo.id);
+        console.log(`✅ Movimiento de efectivo ${movimientoEfectivo.id} eliminado automáticamente`);
       }
 
       db.prepare('DELETE FROM gastos_personales WHERE id = ?').run(id);

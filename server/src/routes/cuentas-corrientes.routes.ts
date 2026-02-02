@@ -21,6 +21,9 @@ router.post('/:id/movimientos', (req, res) => cuentasCorrientesController.crearM
 // Importar movimientos desde CSV
 router.post('/:id/importar', (req, res) => cuentasCorrientesController.importarCSV(req, res));
 
+// Recalcular saldos de una cuenta
+router.post('/:id/recalcular-saldos', (req, res) => cuentasCorrientesController.recalcularSaldos(req, res));
+
 // Eliminar un movimiento
 router.delete('/movimientos/:movimientoId', (req, res) =>
   cuentasCorrientesController.eliminarMovimiento(req, res)

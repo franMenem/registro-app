@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import toast from 'react-hot-toast';
+import { showToast } from '@/components/ui/Toast';
 import {
   Plus,
   Edit,
@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Modal } from '@/components/ui/Modal';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { Pagination } from '@/components/ui/Pagination';
 import { gastosPersonalesApi } from '@/services/api';
 
 // 5 conceptos de gastos personales
@@ -68,6 +69,10 @@ const GastosPersonales: React.FC = () => {
     estado: 'Pagado',
   });
 
+  // Paginación
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(50);
+
   // Queries
   const { data: gastosPersonales = [], refetch: refetchGastos } = useQuery({
     queryKey: ['gastos-personales', mesActual, anioActual],
@@ -88,7 +93,7 @@ const GastosPersonales: React.FC = () => {
   const createGastoMutation = useMutation({
     mutationFn: gastosPersonalesApi.create,
     onSuccess: (response) => {
-      toast.success(response.message);
+      showToast.success(response.message);
       setModalGasto({ isOpen: false, gasto: null });
       resetFormGasto();
       refetchGastos();
@@ -96,7 +101,7 @@ const GastosPersonales: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['gastos-personales-pendientes'] });
     },
     onError: (error: Error) => {
-      toast.error(error.message);
+      showToast.error(error.message);
     },
   });
 
@@ -104,27 +109,27 @@ const GastosPersonales: React.FC = () => {
     mutationFn: ({ id, datos }: { id: number; datos: any }) =>
       gastosPersonalesApi.update(id, datos),
     onSuccess: (response) => {
-      toast.success(response.message);
+      showToast.success(response.message);
       setModalGasto({ isOpen: false, gasto: null });
       resetFormGasto();
       refetchGastos();
       queryClient.invalidateQueries({ queryKey: ['gastos-personales-resumen'] });
     },
     onError: (error: Error) => {
-      toast.error(error.message);
+      showToast.error(error.message);
     },
   });
 
   const deleteGastoMutation = useMutation({
     mutationFn: gastosPersonalesApi.delete,
     onSuccess: (response) => {
-      toast.success(response.message);
+      showToast.success(response.message);
       setDeleteDialog({ isOpen: false, id: null });
       refetchGastos();
       queryClient.invalidateQueries({ queryKey: ['gastos-personales-resumen'] });
     },
     onError: (error: Error) => {
-      toast.error(error.message);
+      showToast.error(error.message);
     },
   });
 
@@ -132,9 +137,9 @@ const GastosPersonales: React.FC = () => {
     mutationFn: (contenido: string) => gastosPersonalesApi.importarCSV(contenido),
     onSuccess: (data) => {
       const { insertados, errores } = data;
-      toast.success(`Importación completada: ${insertados} gastos insertados`);
+      showToast.success(`Importación completada: ${insertados} gastos insertados`);
       if (errores.length > 0) {
-        toast.error(`${errores.length} errores encontrados. Revisa la consola.`);
+        showToast.error(`${errores.length} errores encontrados. Revisa la consola.`);
         console.error('Errores de importación:', errores);
       }
       refetchGastos();
@@ -142,7 +147,7 @@ const GastosPersonales: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['gastos-personales-pendientes'] });
     },
     onError: (error: Error) => {
-      toast.error(`Error al importar: ${error.message}`);
+      showToast.error(`Error al importar: ${error.message}`);
     },
   });
 
@@ -156,7 +161,7 @@ const GastosPersonales: React.FC = () => {
     if (!file) return;
 
     if (!file.name.endsWith('.csv')) {
-      toast.error('Por favor seleccioná un archivo CSV');
+      showToast.error('Por favor seleccioná un archivo CSV');
       return;
     }
 
@@ -164,7 +169,7 @@ const GastosPersonales: React.FC = () => {
       const contenido = await file.text();
       importarCSVMutation.mutate(contenido);
     } catch (error) {
-      toast.error('Error al leer el archivo');
+      showToast.error('Error al leer el archivo');
     } finally {
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
@@ -200,7 +205,7 @@ const GastosPersonales: React.FC = () => {
 
   const handleGuardarGasto = () => {
     if (!formGasto.monto || formGasto.monto <= 0) {
-      toast.error('El monto debe ser mayor a 0');
+      showToast.error('El monto debe ser mayor a 0');
       return;
     }
 
@@ -227,6 +232,17 @@ const GastosPersonales: React.FC = () => {
   const formatDate = (dateStr: string) => {
     return format(new Date(dateStr + 'T00:00:00'), 'dd/MM/yyyy', { locale: es });
   };
+
+  // Aplicar paginación
+  const totalItems = gastosPersonales.length;
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const gastosPersonalesAMostrar = gastosPersonales.slice(startIndex, endIndex);
+
+  // Reset page cuando cambia mes o año
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [mesActual, anioActual]);
 
   return (
     <div className="space-y-6 p-6">
@@ -308,7 +324,7 @@ const GastosPersonales: React.FC = () => {
 
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <Card className="p-5">
           <div className="flex items-center justify-between">
             <div>
@@ -412,14 +428,14 @@ const GastosPersonales: React.FC = () => {
               </tr>
             </thead>
             <tbody className="bg-background divide-y divide-border">
-              {gastosPersonales.length === 0 ? (
+              {gastosPersonalesAMostrar.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-8 text-center text-text-secondary">
                     No hay gastos personales registrados este mes
                   </td>
                 </tr>
               ) : (
-                gastosPersonales.map((gasto: GastoPersonal) => (
+                gastosPersonalesAMostrar.map((gasto: GastoPersonal) => (
                   <tr key={gasto.id} className="hover:bg-background-secondary/50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-text-primary">
                       {formatDate(gasto.fecha)}
@@ -470,6 +486,17 @@ const GastosPersonales: React.FC = () => {
             </tbody>
           </table>
         </div>
+
+        {/* Paginación */}
+        {totalItems > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalItems={totalItems}
+            itemsPerPage={itemsPerPage}
+            onPageChange={setCurrentPage}
+            onItemsPerPageChange={setItemsPerPage}
+          />
+        )}
       </Card>
 
       {/* Modal Crear/Editar Gasto */}

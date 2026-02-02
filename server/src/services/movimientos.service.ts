@@ -5,6 +5,8 @@ import controlQuincenalService from './controles-quincenales.service';
 import controlPOSNETService from './control-posnet.service';
 import cuentasService from './cuentas.service';
 import integracionesService from './integraciones.service';
+import vepsService from './veps.service';
+import epagosService from './epagos.service';
 
 /**
  * Servicio principal de movimientos
@@ -118,6 +120,18 @@ export class MovimientosService {
             )}`
           );
         }
+      } else if (concepto.nombre === 'VEP' || concepto.nombre === 'VEP CAJA') {
+        // Registrar en control_veps (siempre CAJA)
+        vepsService.crear(movimiento.fecha, movimiento.monto, 'CAJA', movimiento.observaciones);
+        alertas.push(
+          `VEP registrado en control por $${movimiento.monto.toFixed(2)}`
+        );
+      } else if (concepto.nombre === 'ePagos' || concepto.nombre === 'ePagos CAJA') {
+        // Registrar en control_epagos (siempre CAJA)
+        epagosService.crear(movimiento.fecha, movimiento.monto, 'CAJA', movimiento.observaciones);
+        alertas.push(
+          `ePago registrado en control por $${movimiento.monto.toFixed(2)}`
+        );
       }
 
       return { movimientoId, alertas };
@@ -300,26 +314,27 @@ export class MovimientosService {
     const result = transaction(() => {
       const fechaObj = new Date(fecha);
 
+      // Preparar statement UNA SOLA VEZ antes del loop (optimización de performance)
+      const insertMovimientoStmt = db.prepare(
+        `INSERT INTO movimientos (fecha, tipo, cuit, concepto_id, monto, observaciones)
+         VALUES (?, ?, ?, ?, ?, ?)`
+      );
+
       // Procesar conceptos que suman
       for (const [key, conceptoNombre] of Object.entries(conceptosMap)) {
         const valor = values[key as keyof typeof values];
         if (valor > 0) {
           const concepto = conceptosById.get(conceptoNombre);
           if (concepto) {
-            // Insertar movimiento
-            const insertResult = db
-              .prepare(
-                `INSERT INTO movimientos (fecha, tipo, cuit, concepto_id, monto, observaciones)
-                 VALUES (?, ?, ?, ?, ?, ?)`
-              )
-              .run(
-                fecha,
-                'RENTAS',
-                cuitGenerico,
-                concepto.id,
-                valor,
-                `Registro diario - ${conceptoNombre}`
-              );
+            // Insertar movimiento usando el statement preparado
+            const insertResult = insertMovimientoStmt.run(
+              fecha,
+              'RENTAS',
+              cuitGenerico,
+              concepto.id,
+              valor,
+              `Registro diario - ${conceptoNombre}`
+            );
 
             const movimientoId = insertResult.lastInsertRowid as number;
             totalMovimientos++;
@@ -420,6 +435,21 @@ export class MovimientosService {
       const total = totalSuman - totalRestan - totalGastos;
       const diferencia = entregado - total;
 
+      // Si hay entregado, registrarlo como INGRESO de efectivo
+      if (entregado > 0) {
+        db.prepare(
+          `INSERT INTO movimientos_efectivo
+           (fecha, tipo, concepto, monto, observaciones)
+           VALUES (?, 'INGRESO', ?, ?, ?)`
+        ).run(
+          fecha,
+          'Efectivo RENTAS entregado',
+          entregado,
+          diferencia !== 0 ? `Diferencia: ${diferencia > 0 ? '+' : ''}${diferencia.toFixed(2)}` : null
+        );
+        console.log(`💰 Efectivo RENTAS registrado: $${entregado}`);
+      }
+
       return {
         totalMovimientos,
         diferencia,
@@ -484,19 +514,22 @@ export class MovimientosService {
     const result = transaction(() => {
       const fechaObj = new Date(fecha);
 
+      // Preparar statement UNA SOLA VEZ antes del loop (optimización de performance)
+      const insertMovimientoStmt = db.prepare(
+        `INSERT INTO movimientos (fecha, tipo, cuit, concepto_id, monto, observaciones)
+         VALUES (?, ?, ?, ?, ?, ?)`
+      );
+
       // Procesar conceptos que suman o restan
       for (const [key, conceptoNombre] of Object.entries(conceptosMap)) {
         const valor = values[key as keyof typeof values];
         if (valor > 0) {
           const concepto = conceptosById.get(conceptoNombre);
           if (concepto) {
-            // Insertar movimiento
-            const insertResult = db
-              .prepare(
-                `INSERT INTO movimientos (fecha, tipo, cuit, concepto_id, monto, observaciones)
-                 VALUES (?, ?, ?, ?, ?, ?)`
-              )
-              .run(fecha, 'CAJA', cuitGenerico, concepto.id, valor, `Registro diario - ${conceptoNombre}`);
+            // Insertar movimiento usando el statement preparado
+            const insertResult = insertMovimientoStmt.run(
+              fecha, 'CAJA', cuitGenerico, concepto.id, valor, `Registro diario - ${conceptoNombre}`
+            );
 
             const movimientoId = insertResult.lastInsertRowid as number;
             totalMovimientos++;
@@ -642,6 +675,30 @@ export class MovimientosService {
       }
       if (integracion.adelantosCreados > 0) {
         alertas.push(`✅ ${integracion.adelantosCreados} adelanto(s) registrado(s) automáticamente (Pendiente)`);
+      }
+      if (integracion.vepsCreados > 0) {
+        alertas.push(`✅ ${integracion.vepsCreados} VEP(s) registrado(s) en Control VEPs automáticamente`);
+      }
+      if (integracion.epagosCreados > 0) {
+        alertas.push(`✅ ${integracion.epagosCreados} ePago(s) registrado(s) en Control ePagos automáticamente`);
+      }
+      if (integracion.gastosPersonalesCreados > 0) {
+        alertas.push(`✅ ${integracion.gastosPersonalesCreados} gasto(s) personal(es) registrado(s) automáticamente`);
+      }
+
+      // Si hay entregado, registrarlo como INGRESO de efectivo
+      if (entregado > 0) {
+        db.prepare(
+          `INSERT INTO movimientos_efectivo
+           (fecha, tipo, concepto, monto, observaciones)
+           VALUES (?, 'INGRESO', ?, ?, ?)`
+        ).run(
+          fecha,
+          'Efectivo CAJA entregado',
+          entregado,
+          diferencia !== 0 ? `Diferencia: ${diferencia > 0 ? '+' : ''}${diferencia.toFixed(2)}` : null
+        );
+        console.log(`💰 Efectivo CAJA registrado: $${entregado}`);
       }
 
       return {

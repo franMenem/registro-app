@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import toast from 'react-hot-toast';
+import { showToast } from '@/components/ui/Toast';
 import { Save, X, Calculator, Upload } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
@@ -136,13 +136,13 @@ const FormularioRentas: React.FC = () => {
   const saveMutation = useMutation({
     mutationFn: movimientosApi.createRentasDiario,
     onSuccess: (response) => {
-      toast.success(response.message);
+      showToast.success(response.message);
 
       // Mostrar alertas adicionales si existen
       if (response.data.alertas && response.data.alertas.length > 0) {
         response.data.alertas.forEach((alerta: string, index: number) => {
           setTimeout(() => {
-            toast(alerta, { duration: 5000, icon: 'ℹ️' });
+            showToast.info(alerta);
           }, index * 100);
         });
       }
@@ -177,7 +177,7 @@ const FormularioRentas: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['controles-quincenales'] });
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Error al guardar el registro');
+      showToast.error(error.message || 'Error al guardar el registro');
     },
   });
 
@@ -186,11 +186,11 @@ const FormularioRentas: React.FC = () => {
     mutationFn: (contenido: string) => movimientosApi.importarCSV(contenido),
     onSuccess: (data) => {
       const { insertados, errores } = data;
-      toast.success(
+      showToast.success(
         `Importación completada: ${insertados} movimientos insertados`
       );
       if (errores.length > 0) {
-        toast.error(`${errores.length} errores encontrados. Revisa la consola.`);
+        showToast.error(`${errores.length} errores encontrados. Revisa la consola.`);
         console.error('Errores de importación:', errores);
       }
       // Invalidar queries
@@ -198,7 +198,7 @@ const FormularioRentas: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
     },
     onError: (error: Error) => {
-      toast.error(`Error al importar: ${error.message}`);
+      showToast.error(`Error al importar: ${error.message}`);
     },
   });
 
@@ -211,7 +211,7 @@ const FormularioRentas: React.FC = () => {
     if (!file) return;
 
     if (!file.name.endsWith('.csv')) {
-      toast.error('Por favor seleccioná un archivo CSV');
+      showToast.error('Por favor seleccioná un archivo CSV');
       return;
     }
 
@@ -219,7 +219,7 @@ const FormularioRentas: React.FC = () => {
       const contenido = await file.text();
       importarCSVMutation.mutate(contenido);
     } catch (error) {
-      toast.error('Error al leer el archivo');
+      showToast.error('Error al leer el archivo');
     } finally {
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
@@ -231,7 +231,7 @@ const FormularioRentas: React.FC = () => {
     // Validar que al menos un concepto tenga valor
     const tieneValores = Object.values(values).some((v) => v > 0);
     if (!tieneValores) {
-      toast.error('Debe ingresar al menos un valor');
+      showToast.error('Debe ingresar al menos un valor');
       return;
     }
 

@@ -1,9 +1,9 @@
 /**
  * Types para Gastos Personales de la Jefa
- * 5 conceptos: Gaspar, Nacion, Efectivo, Patagonia, Credicoop
+ * 6 conceptos: Gaspar, Nacion, Efectivo, Patagonia, Credicoop, TERE
  */
 
-export type ConceptoGastoPersonal = 'Gaspar' | 'Nacion' | 'Efectivo' | 'Patagonia' | 'Credicoop';
+export type ConceptoGastoPersonal = 'Gaspar' | 'Nacion' | 'Efectivo' | 'Patagonia' | 'Credicoop' | 'TERE';
 
 export type EstadoGastoPersonal = 'Pagado' | 'Pendiente';
 

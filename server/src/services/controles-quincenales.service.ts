@@ -102,6 +102,37 @@ export class ControlQuincenalService implements IControlService {
   }
 
   /**
+   * Resta un monto de un control quincenal existente
+   */
+  restarDelControl(conceptoId: number, fecha: Date, monto: number): void {
+    const { quincena, mes, anio } = calcularQuincena(fecha);
+
+    // Buscar control existente
+    const controlExistente = db
+      .prepare(
+        `SELECT * FROM controles_quincenales
+         WHERE concepto_id = ? AND mes = ? AND anio = ? AND quincena = ?`
+      )
+      .get(conceptoId, mes, anio, quincena);
+
+    if (controlExistente) {
+      const nuevoTotal = (controlExistente as any).total_recaudado - monto;
+
+      if (nuevoTotal <= 0) {
+        // Si el total queda en 0 o negativo, eliminar el control
+        db.prepare('DELETE FROM controles_quincenales WHERE id = ?').run((controlExistente as any).id);
+      } else {
+        // Actualizar total
+        db.prepare(
+          `UPDATE controles_quincenales
+           SET total_recaudado = ?
+           WHERE id = ?`
+        ).run(nuevoTotal, (controlExistente as any).id);
+      }
+    }
+  }
+
+  /**
    * Elimina un control quincenal
    */
   eliminar(controlId: number): void {

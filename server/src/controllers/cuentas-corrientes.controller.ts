@@ -48,15 +48,25 @@ export class CuentasCorrientesController {
   obtenerMovimientos(req: Request, res: Response) {
     try {
       const id = parseInt(req.params.id);
-      const { desde, hasta, tipo } = req.query;
+      const { desde, hasta, tipo, limit, offset } = req.query;
 
-      const movimientos = cuentasCorrientesService.obtenerMovimientos(id, {
+      const resultado = cuentasCorrientesService.obtenerMovimientos(id, {
         desde: desde as string,
         hasta: hasta as string,
         tipo: tipo as 'INGRESO' | 'EGRESO',
+        limit: limit ? parseInt(limit as string) : undefined,
+        offset: offset ? parseInt(offset as string) : undefined,
       });
 
-      res.json({ success: true, movimientos });
+      res.json({
+        success: true,
+        data: resultado.movimientos,
+        pagination: {
+          total: resultado.total,
+          limit: limit ? parseInt(limit as string) : 100,
+          offset: offset ? parseInt(offset as string) : 0,
+        },
+      });
     } catch (error: any) {
       res.status(500).json({
         success: false,
@@ -165,6 +175,27 @@ export class CuentasCorrientesController {
       res.status(500).json({
         success: false,
         message: error.message || 'Error al importar movimientos',
+      });
+    }
+  }
+
+  /**
+   * Recalcula todos los saldos de una cuenta
+   */
+  recalcularSaldos(req: Request, res: Response) {
+    try {
+      const id = parseInt(req.params.id);
+      const resultado = cuentasCorrientesService.recalcularTodosSaldos(id);
+
+      res.json({
+        success: true,
+        message: `Saldos recalculados correctamente: ${resultado.movimientos_actualizados} movimientos actualizados`,
+        movimientos_actualizados: resultado.movimientos_actualizados,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Error al recalcular saldos',
       });
     }
   }

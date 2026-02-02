@@ -1,5 +1,8 @@
 import gastosRegistralesService from './gastos-registrales.service';
 import adelantosService from './adelantos.service';
+import gastosPersonalesService from './gastos-personales.service';
+import vepsService from './veps.service';
+import epagosService from './epagos.service';
 import { ConceptoGastoRegistral } from '../types/gastos-registrales.types';
 
 /**
@@ -19,12 +22,13 @@ export class IntegracionesService {
     }
   > = {
     LIBRERIA: { concepto: 'LIBRERIA' },
+    MARIA: { concepto: 'MARIA' },
     AGUA: { concepto: 'AGUA' },
-    'CARGAS SOCIALES': { concepto: 'CARGAS_SOCIALES' },
+    CARGAS_SOCIALES: { concepto: 'CARGAS_SOCIALES' },
     EDESUR: { concepto: 'EDESUR' },
     ACARA: { concepto: 'ACARA' },
-    'REPO CAJA CHICA': { concepto: 'OTROS', observacion: 'Repo Caja Chica' },
-    'REPO RENTAS CHICA': { concepto: 'OTROS', observacion: 'Repo Rentas Chica' },
+    REPO_CAJA_CHICA: { concepto: 'OTROS', observacion: 'Repo Caja Chica' },
+    REPO_RENTAS_CHICA: { concepto: 'OTROS', observacion: 'Repo Rentas Chica' },
   };
 
   /**
@@ -34,9 +38,15 @@ export class IntegracionesService {
   procesarFormularioCaja(fecha: string, conceptos: Record<string, number>): {
     gastosCreados: number;
     adelantosCreados: number;
+    vepsCreados: number;
+    epagosCreados: number;
+    gastosPersonalesCreados: number;
   } {
     let gastosCreados = 0;
     let adelantosCreados = 0;
+    let vepsCreados = 0;
+    let epagosCreados = 0;
+    let gastosPersonalesCreados = 0;
 
     try {
       // 1. Procesar conceptos que van a Gastos Registrales
@@ -82,7 +92,31 @@ export class IntegracionesService {
         adelantosCreados++;
       }
 
-      return { gastosCreados, adelantosCreados };
+      // 4. Procesar VEP
+      if (conceptos['VEP'] && conceptos['VEP'] > 0) {
+        vepsService.crear(fecha, conceptos['VEP'], 'CAJA', 'Desde Formulario CAJA');
+        vepsCreados++;
+      }
+
+      // 5. Procesar ePagos
+      if (conceptos['EPAGOS'] && conceptos['EPAGOS'] > 0) {
+        epagosService.crear(fecha, conceptos['EPAGOS'], 'CAJA', 'Desde Formulario CAJA');
+        epagosCreados++;
+      }
+
+      // 6. Procesar TERE como gasto personal
+      if (conceptos['TERE'] && conceptos['TERE'] > 0) {
+        gastosPersonalesService.crear({
+          fecha,
+          concepto: 'TERE',
+          monto: conceptos['TERE'],
+          observaciones: 'Desde Formulario CAJA',
+          estado: 'Pagado',
+        });
+        gastosPersonalesCreados++;
+      }
+
+      return { gastosCreados, adelantosCreados, vepsCreados, epagosCreados, gastosPersonalesCreados };
     } catch (error) {
       // Si algo falla, propagar el error para que el controlador maneje el rollback
       throw error;

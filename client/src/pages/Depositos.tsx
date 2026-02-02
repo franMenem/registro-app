@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { PromptDialog } from '@/components/ui/PromptDialog';
+import { Pagination } from '@/components/ui/Pagination';
 import { Table, TableColumn } from '@/components/tables/Table';
 import { MetricCard } from '@/components/ui/MetricCard';
 import { depositosApi, cuentasApi, clientesApi } from '@/services/api';
@@ -13,7 +14,7 @@ import { CuentaSearch } from '@/components/ui/CuentaSearch';
 import { formatCurrency, formatDate } from '@/utils/format';
 import { Deposito, DepositoCreate, EstadoDeposito } from '@/types';
 import { Plus, Trash2, DollarSign, AlertCircle, CheckCircle, Edit, Upload, Copy } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { showToast } from '@/components/ui/Toast';
 
 const Depositos: React.FC = () => {
   const navigate = useNavigate();
@@ -91,11 +92,13 @@ const Depositos: React.FC = () => {
   }>({ isOpen: false, depositoId: null, cuentaId: null, clienteId: null });
 
   // Fetch depósitos
-  const { data: depositosRaw = [], isLoading, error: depositosError } = useQuery({
+  const { data: depositosData, isLoading, error: depositosError } = useQuery({
     queryKey: ['depositos', filtroEstado],
     queryFn: () =>
       depositosApi.getAll(filtroEstado !== 'TODOS' ? { estado: filtroEstado } : undefined),
   });
+
+  const depositosRaw = depositosData?.depositos || [];
 
   // Aplicar filtros locales
   const depositosFiltrados = depositosRaw.filter((deposito) => {
@@ -174,23 +177,11 @@ const Depositos: React.FC = () => {
     return cuenta.nombre === cuenta.nombre.toUpperCase();
   });
 
-  // Mostrar error crítico solo si no se pueden cargar los depósitos
-  if (depositosError) {
-    return (
-      <div className="p-6">
-        <div className="bg-error-light border border-error text-error px-4 py-3 rounded">
-          <p className="font-bold">Error al cargar depósitos</p>
-          <p>{(depositosError as Error).message}</p>
-        </div>
-      </div>
-    );
-  }
-
   // Mutation para crear
   const createMutation = useMutation({
     mutationFn: (data: DepositoCreate) => depositosApi.create(data),
     onSuccess: () => {
-      toast.success('Depósito creado correctamente');
+      showToast.success('Depósito creado correctamente');
       setShowModal(false);
       resetForm();
       queryClient.invalidateQueries({ queryKey: ['depositos'] });
@@ -200,7 +191,7 @@ const Depositos: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['movimientos-cuenta'] });
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Error al crear el depósito');
+      showToast.error(error.message || 'Error al crear el depósito');
     },
   });
 
@@ -209,7 +200,7 @@ const Depositos: React.FC = () => {
     mutationFn: ({ id, data }: { id: number; data: Partial<Deposito> }) =>
       depositosApi.update(id, data),
     onSuccess: () => {
-      toast.success('Depósito actualizado correctamente');
+      showToast.success('Depósito actualizado correctamente');
       setShowModal(false);
       resetForm();
       queryClient.invalidateQueries({ queryKey: ['depositos'] });
@@ -219,7 +210,7 @@ const Depositos: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['movimientos-cuenta'] });
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Error al actualizar el depósito');
+      showToast.error(error.message || 'Error al actualizar el depósito');
     },
   });
 
@@ -227,14 +218,14 @@ const Depositos: React.FC = () => {
   const deleteMutation = useMutation({
     mutationFn: (id: number) => depositosApi.delete(id),
     onSuccess: () => {
-      toast.success('Depósito eliminado correctamente');
+      showToast.success('Depósito eliminado correctamente');
       queryClient.invalidateQueries({ queryKey: ['depositos'] });
       queryClient.invalidateQueries({ queryKey: ['depositos-estadisticas'] });
       queryClient.invalidateQueries({ queryKey: ['cuentas'] });
       queryClient.invalidateQueries({ queryKey: ['movimientos-cuenta'] });
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Error al eliminar el depósito');
+      showToast.error(error.message || 'Error al eliminar el depósito');
     },
   });
 
@@ -255,7 +246,7 @@ const Depositos: React.FC = () => {
       }
     },
     onSuccess: () => {
-      toast.success('Estado actualizado correctamente');
+      showToast.success('Estado actualizado correctamente');
       setShowUsarSaldoModal(false);
       setDepositoToUse(null);
       setUsarSaldoData({ monto: 0, tipo_uso: 'CAJA', descripcion: '' });
@@ -266,7 +257,7 @@ const Depositos: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['movimientos-cuenta'] });
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Error al cambiar el estado');
+      showToast.error(error.message || 'Error al cambiar el estado');
     },
   });
 
@@ -275,7 +266,7 @@ const Depositos: React.FC = () => {
     mutationFn: ({ depositoId, cuentaId }: { depositoId: number; cuentaId: number }) =>
       depositosApi.asociarCuenta(depositoId, cuentaId),
     onSuccess: () => {
-      toast.success('Depósito asociado a cuenta corriente. Se creó un INGRESO automáticamente.');
+      showToast.success('Depósito asociado a cuenta corriente. Se creó un INGRESO automáticamente.');
       setAsociarCuentaDialog({ isOpen: false, depositoId: null, cuentaId: null, clienteId: null });
       queryClient.invalidateQueries({ queryKey: ['depositos'] });
       queryClient.invalidateQueries({ queryKey: ['depositos-estadisticas'] });
@@ -284,7 +275,7 @@ const Depositos: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['movimientos-cuenta'] });
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Error al asociar depósito');
+      showToast.error(error.message || 'Error al asociar depósito');
     },
   });
 
@@ -293,7 +284,7 @@ const Depositos: React.FC = () => {
     mutationFn: ({ depositoId, clienteId }: { depositoId: number; clienteId: number }) =>
       depositosApi.update(depositoId, { cliente_id: clienteId }),
     onSuccess: () => {
-      toast.success('Depósito asociado a cliente correctamente.');
+      showToast.success('Depósito asociado a cliente correctamente.');
       setAsociarCuentaDialog({ isOpen: false, depositoId: null, cuentaId: null, clienteId: null });
       queryClient.invalidateQueries({ queryKey: ['depositos'] });
       queryClient.invalidateQueries({ queryKey: ['depositos-estadisticas'] });
@@ -301,7 +292,7 @@ const Depositos: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['clientes-resumen'] });
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Error al asociar depósito a cliente');
+      showToast.error(error.message || 'Error al asociar depósito a cliente');
     },
   });
 
@@ -309,7 +300,7 @@ const Depositos: React.FC = () => {
   const desasociarCuentaMutation = useMutation({
     mutationFn: (depositoId: number) => depositosApi.desasociarCuenta(depositoId),
     onSuccess: () => {
-      toast.success('Depósito desasociado. El INGRESO fue eliminado de la cuenta corriente.');
+      showToast.success('Depósito desasociado. El INGRESO fue eliminado de la cuenta corriente.');
       queryClient.invalidateQueries({ queryKey: ['depositos'] });
       queryClient.invalidateQueries({ queryKey: ['depositos-estadisticas'] });
       queryClient.invalidateQueries({ queryKey: ['depositos-no-asociados'] });
@@ -317,9 +308,21 @@ const Depositos: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['movimientos-cuenta'] });
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Error al desasociar depósito');
+      showToast.error(error.message || 'Error al desasociar depósito');
     },
   });
+
+  // Mostrar error crítico solo si no se pueden cargar los depósitos
+  if (depositosError) {
+    return (
+      <div className="p-6">
+        <div className="bg-error-light border border-error text-error px-4 py-3 rounded">
+          <p className="font-bold">Error al cargar depósitos</p>
+          <p>{(depositosError as Error).message}</p>
+        </div>
+      </div>
+    );
+  }
 
   const columns: TableColumn[] = [
     { key: 'fecha_ingreso', label: 'Fecha Ingreso', width: '120px' },
@@ -571,12 +574,12 @@ const Depositos: React.FC = () => {
     if (editingDeposito) {
       // Modo edición: validar y actualizar un solo depósito
       if (!formData.titular) {
-        toast.error('El titular es requerido');
+        showToast.error('El titular es requerido');
         return;
       }
 
       if (formData.monto_original <= 0) {
-        toast.error('El monto debe ser mayor a 0');
+        showToast.error('El monto debe ser mayor a 0');
         return;
       }
 
@@ -600,7 +603,7 @@ const Depositos: React.FC = () => {
       });
 
       if (depositosValidos.length === 0) {
-        toast.error('Debe ingresar al menos un depósito con monto válido');
+        showToast.error('Debe ingresar al menos un depósito con monto válido');
         return;
       }
 
@@ -619,7 +622,7 @@ const Depositos: React.FC = () => {
 
       Promise.all(promises)
         .then(() => {
-          toast.success(`${depositosValidos.length} depósito(s) creado(s) correctamente`);
+          showToast.success(`${depositosValidos.length} depósito(s) creado(s) correctamente`);
           setShowModal(false);
           resetForm();
           queryClient.invalidateQueries({ queryKey: ['depositos'] });
@@ -627,7 +630,7 @@ const Depositos: React.FC = () => {
           queryClient.invalidateQueries({ queryKey: ['depositos-no-asociados'] });
         })
         .catch((error) => {
-          toast.error('Error al crear los depósitos: ' + error.message);
+          showToast.error('Error al crear los depósitos: ' + error.message);
         });
     }
   };
@@ -669,7 +672,7 @@ const Depositos: React.FC = () => {
     setDepositosBatch(newBatch);
     setFechaUsoBatch(''); // No copiar fecha de uso
     setShowModal(true);
-    toast.success('Depósito listo para duplicar. Modifica los datos si es necesario.');
+    showToast.success('Depósito listo para duplicar. Modifica los datos si es necesario.');
   };
 
   const handleDelete = (id: number, titular: string) => {
@@ -727,12 +730,12 @@ const Depositos: React.FC = () => {
     if (!depositoToUse) return;
 
     if (usarSaldoData.monto <= 0) {
-      toast.error('El monto debe ser mayor a 0');
+      showToast.error('El monto debe ser mayor a 0');
       return;
     }
 
     if (usarSaldoData.monto > depositoToUse.saldo_actual) {
-      toast.error(`El monto no puede superar el saldo disponible (${formatCurrency(depositoToUse.saldo_actual)})`);
+      showToast.error(`El monto no puede superar el saldo disponible (${formatCurrency(depositoToUse.saldo_actual)})`);
       return;
     }
 
@@ -749,7 +752,7 @@ const Depositos: React.FC = () => {
 
   const confirmAsociarCuenta = () => {
     if (!asociarCuentaDialog.depositoId) {
-      toast.error('Error: Depósito no identificado');
+      showToast.error('Error: Depósito no identificado');
       return;
     }
 
@@ -758,12 +761,12 @@ const Depositos: React.FC = () => {
     const hayCliente = !!asociarCuentaDialog.clienteId;
 
     if (!hayCuenta && !hayCliente) {
-      toast.error('Debe seleccionar una cuenta corriente o un cliente');
+      showToast.error('Debe seleccionar una cuenta corriente o un cliente');
       return;
     }
 
     if (hayCuenta && hayCliente) {
-      toast.error('Solo puede seleccionar cuenta corriente O cliente, no ambos');
+      showToast.error('Solo puede seleccionar cuenta corriente O cliente, no ambos');
       return;
     }
 

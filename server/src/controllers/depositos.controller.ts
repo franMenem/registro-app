@@ -15,12 +15,19 @@ export class DepositosController {
         cuenta_id: req.query.cuenta_id ? parseInt(req.query.cuenta_id as string) : undefined,
         fecha_desde: req.query.fecha_desde as string,
         fecha_hasta: req.query.fecha_hasta as string,
+        limit: req.query.limit ? parseInt(req.query.limit as string) : undefined,
+        offset: req.query.offset ? parseInt(req.query.offset as string) : undefined,
       };
 
-      const depositos = depositosService.getDepositos(filters);
+      const resultado = depositosService.getDepositos(filters);
 
       res.json({
-        data: depositos,
+        data: resultado.depositos,
+        pagination: {
+          total: resultado.total,
+          limit: filters.limit || 100,
+          offset: filters.offset || 0,
+        },
       });
     } catch (error: any) {
       res.status(500).json({ message: error.message });

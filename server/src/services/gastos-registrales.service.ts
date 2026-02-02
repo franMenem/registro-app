@@ -152,6 +152,22 @@ export class GastosRegistralesService {
       throw new Error('Gasto no encontrado');
     }
 
+    // Si el gasto fue creado desde Control Efectivo (origen MANUAL), eliminarlo también de efectivo
+    if (gasto.origen === 'MANUAL') {
+      const movimientoEfectivo = db
+        .prepare(
+          `SELECT id FROM movimientos_efectivo
+           WHERE fecha = ? AND monto = ? AND tipo = 'GASTO'
+           ORDER BY created_at DESC LIMIT 1`
+        )
+        .get(gasto.fecha, gasto.monto) as any;
+
+      if (movimientoEfectivo) {
+        db.prepare('DELETE FROM movimientos_efectivo WHERE id = ?').run(movimientoEfectivo.id);
+        console.log(`✅ Movimiento de efectivo ${movimientoEfectivo.id} eliminado automáticamente`);
+      }
+    }
+
     db.prepare('DELETE FROM gastos_registrales WHERE id = ?').run(id);
   }
 
