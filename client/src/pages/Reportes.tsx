@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { reportesApi, cuentasApi, clientesApi } from '@/services/api';
+import { reportesApi, cuentasApi, clientesApi } from '@/services/supabase';
 import { formatCurrency, formatDate } from '@/utils/format';
 import {
   BarChart,

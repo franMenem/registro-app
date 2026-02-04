@@ -2,62 +2,10 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import axios from 'axios';
 import { showToast } from '@/components/ui/Toast';
 import { formatCurrency, formatDate } from '@/utils/format';
 import { Edit, Check, X } from 'lucide-react';
-
-const API_URL = 'http://localhost:3000/api';
-
-interface DiaRentas {
-  fecha: string;
-  GIT: number;
-  SUAT_ALTA: number;
-  SUAT_PATENTES: number;
-  SUAT_INFRACCIONES: number;
-  SUCERP: number;
-  SUGIT: number;
-  PROVINCIA: number;
-  CONSULTA: number;
-  POSNET: number;
-  ICBC: number;
-  FORD: number;
-  SICARDI: number;
-  PATAGONIA: number;
-  IVECO: number;
-  CNH: number;
-  GESTORIA_FORD: number;
-  ALRA: number;
-  DEPOSITOS: number;
-}
-
-interface DiaCaja {
-  fecha: string;
-  ARANCEL: number;
-  SUAT_SELLADO: number;
-  SUCERP_SELLADO: number;
-  CONSULTAS: number;
-  FORMULARIOS: number;
-  POSNET: number;
-  VEP: number;
-  EPAGOS: number;
-  LIBRERIA: number;
-  MARIA: number;
-  AGUA: number;
-  EDESUR: number;
-  TERE: number;
-  DAMI: number;
-  MUMI: number;
-  ICBC: number;
-  FORD: number;
-  SICARDI: number;
-  PATAGONIA: number;
-  IVECO: number;
-  CNH: number;
-  GESTORIA_FORD: number;
-  ALRA: number;
-  DEPOSITOS: number;
-}
+import { planillasApi, type DiaRentas, type DiaCaja } from '@/services/supabase';
 
 const Planillas: React.FC = () => {
   const queryClient = useQueryClient();
@@ -75,32 +23,26 @@ const Planillas: React.FC = () => {
   // Queries
   const { data: rentasData, isLoading: rentasLoading } = useQuery({
     queryKey: ['planillas-rentas', filtros],
-    queryFn: async () => {
-      const params = new URLSearchParams();
-      if (filtros.fechaDesde) params.append('fecha_desde', filtros.fechaDesde);
-      if (filtros.fechaHasta) params.append('fecha_hasta', filtros.fechaHasta);
-      const res = await axios.get(`${API_URL}/planillas/rentas?${params}`);
-      return res.data.data;
-    },
+    queryFn: () =>
+      planillasApi.getRentas({
+        fechaDesde: filtros.fechaDesde || undefined,
+        fechaHasta: filtros.fechaHasta || undefined,
+      }),
   });
 
   const { data: cajaData, isLoading: cajaLoading } = useQuery({
     queryKey: ['planillas-caja', filtros],
-    queryFn: async () => {
-      const params = new URLSearchParams();
-      if (filtros.fechaDesde) params.append('fecha_desde', filtros.fechaDesde);
-      if (filtros.fechaHasta) params.append('fecha_hasta', filtros.fechaHasta);
-      const res = await axios.get(`${API_URL}/planillas/caja?${params}`);
-      return res.data.data;
-    },
+    queryFn: () =>
+      planillasApi.getCaja({
+        fechaDesde: filtros.fechaDesde || undefined,
+        fechaHasta: filtros.fechaHasta || undefined,
+      }),
   });
 
   // Mutations
   const updateRentasMutation = useMutation({
-    mutationFn: async ({ fecha, valores }: { fecha: string; valores: DiaRentas }) => {
-      const res = await axios.put(`${API_URL}/planillas/rentas/${fecha}`, valores);
-      return res.data;
-    },
+    mutationFn: ({ fecha, valores }: { fecha: string; valores: DiaRentas }) =>
+      planillasApi.updateRentas(fecha, valores),
     onSuccess: (data) => {
       showToast.success(data.message);
       data.alertas?.forEach((alerta: string) => showToast.success(alerta));
@@ -109,16 +51,14 @@ const Planillas: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['controles-semanales'] });
       queryClient.invalidateQueries({ queryKey: ['controles-quincenales'] });
     },
-    onError: (error: any) => {
-      showToast.error(error.response?.data?.message || 'Error al actualizar');
+    onError: (error: Error) => {
+      showToast.error(error.message || 'Error al actualizar');
     },
   });
 
   const updateCajaMutation = useMutation({
-    mutationFn: async ({ fecha, valores }: { fecha: string; valores: DiaCaja }) => {
-      const res = await axios.put(`${API_URL}/planillas/caja/${fecha}`, valores);
-      return res.data;
-    },
+    mutationFn: ({ fecha, valores }: { fecha: string; valores: DiaCaja }) =>
+      planillasApi.updateCaja(fecha, valores),
     onSuccess: (data) => {
       showToast.success(data.message);
       data.alertas?.forEach((alerta: string) => showToast.success(alerta));
@@ -129,8 +69,8 @@ const Planillas: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['veps'] });
       queryClient.invalidateQueries({ queryKey: ['epagos'] });
     },
-    onError: (error: any) => {
-      showToast.error(error.response?.data?.message || 'Error al actualizar');
+    onError: (error: Error) => {
+      showToast.error(error.message || 'Error al actualizar');
     },
   });
 

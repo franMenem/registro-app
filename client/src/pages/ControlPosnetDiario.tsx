@@ -1,37 +1,15 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { showToast } from '@/components/ui/Toast';
 import { Calendar, DollarSign, AlertCircle, CheckCircle2, TrendingUp, Upload } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
-import { posnetDiarioApi } from '@/services/api';
-
-interface RegistroPosnet {
-  id: number;
-  fecha: string;
-  monto_rentas: number;
-  monto_caja: number;
-  total_posnet: number;
-  monto_ingresado_banco: number;
-  diferencia: number;
-  created_at: string;
-  updated_at: string;
-}
-
-interface ResumenMensual {
-  mes: number;
-  anio: number;
-  total_dias: number;
-  total_rentas: number;
-  total_caja: number;
-  total_posnet: number;
-  total_ingresado: number;
-  diferencia_acumulada: number;
-  dias_ok: number;
-  dias_falta_ingresar: number;
-  dias_error: number;
-}
+import {
+  posnetDiarioApi,
+  type RegistroPosnet,
+  type ResumenMensual,
+} from '@/services/supabase';
 
 const ControlPosnetDiario: React.FC = () => {
   const queryClient = useQueryClient();

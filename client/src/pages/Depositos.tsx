@@ -8,11 +8,14 @@ import { PromptDialog } from '@/components/ui/PromptDialog';
 import { Pagination } from '@/components/ui/Pagination';
 import { Table, TableColumn } from '@/components/tables/Table';
 import { MetricCard } from '@/components/ui/MetricCard';
-import { depositosApi, cuentasApi, clientesApi } from '@/services/api';
+import { depositosApi, Deposito, DepositoCreate } from '@/services/supabase/depositos';
+import { cuentasApi } from '@/services/supabase/cuentas-corrientes';
+import { clientesApi } from '@/services/supabase/clientes';
 import { ClienteSearch } from '@/components/ui/ClienteSearch';
 import { CuentaSearch } from '@/components/ui/CuentaSearch';
 import { formatCurrency, formatDate } from '@/utils/format';
-import { Deposito, DepositoCreate, EstadoDeposito } from '@/types';
+
+type EstadoDeposito = 'PENDIENTE' | 'LIQUIDADO' | 'A_FAVOR' | 'A_CUENTA' | 'DEVUELTO';
 import { Plus, Trash2, DollarSign, AlertCircle, CheckCircle, Edit, Upload, Copy } from 'lucide-react';
 import { showToast } from '@/components/ui/Toast';
 

@@ -18,23 +18,12 @@ import { Card } from '@/components/ui/Card';
 import { Modal } from '@/components/ui/Modal';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Pagination } from '@/components/ui/Pagination';
-import { gastosPersonalesApi } from '@/services/api';
+import { gastosPersonalesApi, GastoPersonal } from '@/services/supabase/gastos-personales';
 
-// 5 conceptos de gastos personales
-const CONCEPTOS_GP = ['Gaspar', 'Nacion', 'Efectivo', 'Patagonia', 'Credicoop'] as const;
+// 6 conceptos de gastos personales
+const CONCEPTOS_GP = ['Gaspar', 'Nacion', 'Efectivo', 'Patagonia', 'Credicoop', 'TERE'] as const;
 
 type ConceptoGP = (typeof CONCEPTOS_GP)[number];
-
-interface GastoPersonal {
-  id: number;
-  fecha: string;
-  concepto: ConceptoGP;
-  monto: number;
-  observaciones: string | null;
-  estado: 'Pagado' | 'Pendiente';
-  created_at: string;
-  updated_at: string;
-}
 
 const GastosPersonales: React.FC = () => {
   const queryClient = useQueryClient();
@@ -195,10 +184,10 @@ const GastosPersonales: React.FC = () => {
   const handleEditarGasto = (gasto: GastoPersonal) => {
     setFormGasto({
       fecha: gasto.fecha,
-      concepto: gasto.concepto,
+      concepto: gasto.concepto as ConceptoGP,
       monto: gasto.monto,
       observaciones: gasto.observaciones || '',
-      estado: gasto.estado,
+      estado: gasto.estado as 'Pagado' | 'Pendiente',
     });
     setModalGasto({ isOpen: true, gasto });
   };

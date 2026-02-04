@@ -4,10 +4,7 @@ import { showToast } from '@/components/ui/Toast';
 import { Card } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Trash2, AlertTriangle, Database, RefreshCw, ArrowRightLeft } from 'lucide-react';
-import axios from 'axios';
-import { depositosApi, migracionApi } from '@/services/api';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+import { depositosApi, adminApi, migracionApi } from '@/services/supabase';
 
 const Configuracion: React.FC = () => {
   const queryClient = useQueryClient();
@@ -58,44 +55,33 @@ const Configuracion: React.FC = () => {
 
   // Mutation para limpiar datos
   const limpiarMutation = useMutation({
-    mutationFn: async ({ action, params }: { action: string; params?: any }) => {
-      let url = '';
+    mutationFn: async ({ action, params }: { action: string; params?: { mes: number; anio: number } }) => {
       switch (action) {
         case 'todo':
-          url = `${API_BASE_URL}/admin/limpiar/todo`;
-          break;
+          return adminApi.limpiarTodo();
         case 'gastos-registrales':
-          url = `${API_BASE_URL}/admin/limpiar/gastos-registrales`;
-          break;
+          return adminApi.limpiarGastosRegistrales();
         case 'gastos-registrales-mes':
-          url = `${API_BASE_URL}/admin/limpiar/gastos-registrales/${params.mes}/${params.anio}`;
-          break;
+          return adminApi.limpiarGastosRegistralesMes(params!.mes, params!.anio);
         case 'gastos-personales':
-          url = `${API_BASE_URL}/admin/limpiar/gastos-personales`;
-          break;
+          return adminApi.limpiarGastosPersonales();
         case 'gastos-personales-mes':
-          url = `${API_BASE_URL}/admin/limpiar/gastos-personales/${params.mes}/${params.anio}`;
-          break;
+          return adminApi.limpiarGastosPersonalesMes(params!.mes, params!.anio);
         case 'movimientos':
-          url = `${API_BASE_URL}/admin/limpiar/movimientos`;
-          break;
+          return adminApi.limpiarMovimientos();
         case 'posnet':
-          url = `${API_BASE_URL}/admin/limpiar/posnet`;
-          break;
+          return adminApi.limpiarPosnet();
         default:
           throw new Error('Acción no válida');
       }
-
-      const { data } = await axios.delete(url);
-      return data;
     },
     onSuccess: (data) => {
       showToast.success(data.message);
       queryClient.invalidateQueries();
       setConfirmDialog({ isOpen: false, title: '', message: '', action: '' });
     },
-    onError: (error: any) => {
-      showToast.error(error.response?.data?.error || error.message);
+    onError: (error: Error) => {
+      showToast.error(error.message);
     },
   });
 

@@ -9,9 +9,8 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Pagination } from '@/components/ui/Pagination';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { Landmark, Download, X, Edit, Trash2, Check, Upload, AlertTriangle, Plus } from 'lucide-react';
-import { cuentasApi } from '@/services/api';
+import { cuentasApi, CuentaCorriente, MovimientoCC } from '@/services/supabase/cuentas-corrientes';
 import { formatCurrency, formatDate } from '@/utils/format';
-import { MovimientoCC } from '@/types';
 import { showToast } from '@/components/ui/Toast';
 
 const CuentasCorrientes: React.FC = () => {

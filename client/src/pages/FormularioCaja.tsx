@@ -7,7 +7,7 @@ import { Save, X, Calculator, Upload } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { movimientosApi } from '@/services/api';
+import { movimientosApi } from '@/services/supabase';
 
 interface ConceptoValues {
   // Conceptos que suman (5)

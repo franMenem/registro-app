@@ -7,9 +7,8 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Table, TableColumn } from '@/components/tables/Table';
-import { dashboardApi, controlesApi } from '@/services/api';
+import { dashboardApi, controlesApi, ControlPendiente } from '@/services/supabase';
 import { formatCurrency, formatDate } from '@/utils/format';
-import { ControlPendiente } from '@/types';
 import { showToast } from '@/components/ui/Toast';
 
 const Dashboard: React.FC = () => {

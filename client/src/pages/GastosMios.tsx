@@ -17,6 +17,11 @@ import { Card } from '@/components/ui/Card';
 import { Modal } from '@/components/ui/Modal';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Pagination } from '@/components/ui/Pagination';
+import {
+  gastosMiosApi,
+  GastoMio,
+  ResumenGastosMios,
+} from '@/services/supabase/gastos-mios';
 
 const CONCEPTOS = [
   'Comida',
@@ -38,105 +43,6 @@ const CONCEPTOS = [
 type Concepto = (typeof CONCEPTOS)[number];
 type Categoria = 'GASTO' | 'INGRESO' | 'AHORRO';
 type Tipo = 'FIJO' | 'VARIABLE';
-
-interface GastoMio {
-  id: number;
-  fecha: string;
-  concepto: Concepto;
-  monto: number;
-  categoria: Categoria;
-  tipo: Tipo;
-  observaciones: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-interface ResumenGastosMios {
-  total_mes: number;
-  total_gastos: number;
-  total_ingresos: number;
-  total_ahorros: number;
-  total_fijos: number;
-  total_variables: number;
-  gastos_por_concepto: Array<{
-    concepto: Concepto;
-    total: number;
-    categoria: Categoria;
-    tipo: Tipo;
-  }>;
-  promedio_mensual: number;
-}
-
-// API functions
-const gastosMiosApi = {
-  getAll: async (filtros?: { mes?: number; anio?: number; categoria?: Categoria; tipo?: Tipo }) => {
-    const params = new URLSearchParams();
-    if (filtros?.mes) params.append('mes', filtros.mes.toString());
-    if (filtros?.anio) params.append('anio', filtros.anio.toString());
-    if (filtros?.categoria) params.append('categoria', filtros.categoria);
-    if (filtros?.tipo) params.append('tipo', filtros.tipo);
-
-    const response = await fetch(`/api/gastos-mios?${params}`);
-    const data = await response.json();
-    if (!data.success) throw new Error(data.message);
-    return data.data;
-  },
-
-  getResumen: async (mes: number, anio: number) => {
-    const response = await fetch(`/api/gastos-mios/resumen/${mes}/${anio}`);
-    const data = await response.json();
-    if (!data.success) throw new Error(data.message);
-    return data.data;
-  },
-
-  create: async (gasto: {
-    fecha: string;
-    concepto: Concepto;
-    monto: number;
-    categoria: Categoria;
-    tipo: Tipo;
-    observaciones?: string;
-  }) => {
-    const response = await fetch('/api/gastos-mios', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(gasto),
-    });
-    const data = await response.json();
-    if (!data.success) throw new Error(data.message);
-    return data;
-  },
-
-  update: async (
-    id: number,
-    gasto: {
-      fecha?: string;
-      concepto?: Concepto;
-      monto?: number;
-      categoria?: Categoria;
-      tipo?: Tipo;
-      observaciones?: string;
-    }
-  ) => {
-    const response = await fetch(`/api/gastos-mios/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(gasto),
-    });
-    const data = await response.json();
-    if (!data.success) throw new Error(data.message);
-    return data;
-  },
-
-  delete: async (id: number) => {
-    const response = await fetch(`/api/gastos-mios/${id}`, {
-      method: 'DELETE',
-    });
-    const data = await response.json();
-    if (!data.success) throw new Error(data.message);
-    return data;
-  },
-};
 
 const GastosMios: React.FC = () => {
   const queryClient = useQueryClient();

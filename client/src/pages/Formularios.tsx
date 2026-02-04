@@ -17,29 +17,11 @@ import { Card } from '@/components/ui/Card';
 import { Modal } from '@/components/ui/Modal';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Pagination } from '@/components/ui/Pagination';
-import { formulariosApi } from '@/services/api';
-
-interface Vencimiento {
-  id: number;
-  formulario_id: number;
-  numero_vencimiento: number;
-  fecha_vencimiento: string;
-  monto: number;
-  estado: 'PENDIENTE' | 'PAGADO' | 'VENCIDO';
-  fecha_pago: string | null;
-  gasto_registral_id: number | null;
-}
-
-interface Formulario {
-  id: number;
-  numero: string;
-  descripcion: string | null;
-  monto: number;
-  fecha_compra: string;
-  proveedor: string | null;
-  vencimientos: Vencimiento[];
-  created_at: string;
-}
+import {
+  formulariosApi,
+  type Formulario,
+  type Vencimiento,
+} from '@/services/supabase';
 
 const Formularios: React.FC = () => {
   const queryClient = useQueryClient();

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { epagosApi } from '@/services/api';
+import { epagosApi } from '@/services/supabase/epagos';
 import { toast } from 'react-hot-toast';
 import { formatCurrency, formatDate } from '@/utils/format';
 

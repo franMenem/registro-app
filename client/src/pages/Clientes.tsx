@@ -17,7 +17,7 @@ import { Modal } from '@/components/ui/Modal';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Pagination } from '@/components/ui/Pagination';
 import { CUITInput } from '@/components/ui/CUITInput';
-import { clientesApi } from '@/services/api';
+import { clientesApi } from '@/services/supabase/clientes';
 
 interface Cliente {
   id: number;

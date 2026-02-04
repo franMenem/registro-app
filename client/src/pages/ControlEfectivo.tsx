@@ -10,35 +10,14 @@ import { Table, TableColumn } from '@/components/tables/Table';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { formatCurrency, formatDate } from '@/utils/format';
 import { showToast } from '@/components/ui/Toast';
-import api from '@/services/api';
+import {
+  controlEfectivoApi,
+  EfectivoStats,
+  MovimientoEfectivo,
+  EfectivoConfig,
+} from '@/services/supabase/control-efectivo';
+import { supabase } from '@/lib/supabase';
 import { CuentaCorriente } from '@/types';
-
-interface EfectivoStats {
-  saldo_inicial: number;
-  total_rentas: number;
-  total_caja: number;
-  total_gastos: number;
-  total_depositos: number;
-  saldo_actual: number;
-}
-
-interface MovimientoEfectivo {
-  id: number;
-  fecha: string;
-  tipo: 'INGRESO' | 'GASTO' | 'DEPOSITO';
-  concepto: string;
-  monto: number;
-  cuenta_id: number | null;
-  cuenta_nombre?: string;
-  observaciones: string | null;
-  created_at: string;
-}
-
-interface EfectivoConfig {
-  id: number;
-  saldo_inicial: number;
-  updated_at: string;
-}
 
 const ControlEfectivo: React.FC = () => {
   const queryClient = useQueryClient();
@@ -76,45 +55,37 @@ const ControlEfectivo: React.FC = () => {
   // Fetch stats
   const { data: stats, isLoading: statsLoading } = useQuery<EfectivoStats>({
     queryKey: ['efectivo-stats'],
-    queryFn: async () => {
-      const response = await api.get('/efectivo/stats');
-      return response.data.data;
-    },
+    queryFn: () => controlEfectivoApi.getStats(),
   });
 
   // Fetch config
   const { data: config, isLoading: configLoading } = useQuery<EfectivoConfig>({
     queryKey: ['efectivo-config'],
-    queryFn: async () => {
-      const response = await api.get('/efectivo/config');
-      return response.data.data;
-    },
+    queryFn: () => controlEfectivoApi.getConfig(),
   });
 
   // Fetch movimientos
   const { data: movimientos = [], isLoading: movimientosLoading } = useQuery<MovimientoEfectivo[]>({
     queryKey: ['movimientos-efectivo'],
-    queryFn: async () => {
-      const response = await api.get('/efectivo/movimientos');
-      return response.data.data;
-    },
+    queryFn: () => controlEfectivoApi.getMovimientos(),
   });
 
   // Fetch cuentas corrientes
   const { data: cuentas = [] } = useQuery<CuentaCorriente[]>({
     queryKey: ['cuentas'],
     queryFn: async () => {
-      const response = await api.get('/cuentas');
-      return response.data.data;
+      const { data, error } = await supabase
+        .from('cuentas_corrientes')
+        .select('*')
+        .order('nombre');
+      if (error) throw new Error(error.message);
+      return data as CuentaCorriente[];
     },
   });
 
   // Mutation para actualizar saldo inicial
   const updateSaldoInicialMutation = useMutation({
-    mutationFn: async (saldoInicial: number) => {
-      const response = await api.put('/efectivo/config', { saldo_inicial: saldoInicial });
-      return response.data;
-    },
+    mutationFn: (saldoInicial: number) => controlEfectivoApi.updateConfig(saldoInicial),
     onSuccess: () => {
       showToast.success('Saldo inicial actualizado');
       queryClient.invalidateQueries({ queryKey: ['efectivo-config'] });
@@ -130,10 +101,7 @@ const ControlEfectivo: React.FC = () => {
 
   // Mutation para crear movimiento
   const createMovimientoMutation = useMutation({
-    mutationFn: async (data: any) => {
-      const response = await api.post('/efectivo/movimientos', data);
-      return response.data;
-    },
+    mutationFn: (data: any) => controlEfectivoApi.createMovimiento(data),
     onSuccess: () => {
       showToast.success('Movimiento registrado exitosamente');
       queryClient.invalidateQueries({ queryKey: ['movimientos-efectivo'] });
@@ -156,9 +124,7 @@ const ControlEfectivo: React.FC = () => {
 
   // Mutation para eliminar movimiento
   const deleteMovimientoMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await api.delete(`/efectivo/movimientos/${id}`);
-    },
+    mutationFn: (id: number) => controlEfectivoApi.deleteMovimiento(id),
     onSuccess: () => {
       showToast.success('Movimiento eliminado');
       queryClient.invalidateQueries({ queryKey: ['movimientos-efectivo'] });

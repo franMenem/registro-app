@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Upload, FileText, CheckCircle, AlertCircle, DollarSign } from 'lucide-react';
 import { showToast } from '@/components/ui/Toast';
+import { depositosApi } from '@/services/supabase';
 
 interface DepositoPreview {
   monto_deposito: number;
@@ -173,28 +174,20 @@ export default function DepositosImport() {
     try {
       const reader = new FileReader();
       reader.onload = async (e) => {
-        const contenido = e.target?.result as string;
-
-        const response = await fetch('http://localhost:3000/api/depositos/importar', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ contenido }),
-        });
-
-        if (!response.ok) {
-          throw new Error('Error al importar depósitos');
+        try {
+          const contenido = e.target?.result as string;
+          const data = await depositosApi.importarCSV(contenido);
+          setResultado(data);
+          showToast.success(data.message);
+        } catch (error: any) {
+          showToast.error(error.message || 'Error al importar depósitos');
+        } finally {
+          setLoading(false);
         }
-
-        const data = await response.json();
-        setResultado(data.data);
-        showToast.success(data.message);
       };
       reader.readAsText(file);
     } catch (error: any) {
       showToast.error(error.message || 'Error al importar depósitos');
-    } finally {
       setLoading(false);
     }
   };

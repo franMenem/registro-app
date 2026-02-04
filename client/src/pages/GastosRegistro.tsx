@@ -18,7 +18,16 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Modal } from '@/components/ui/Modal';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { gastosRegistralesApi, adelantosApi } from '@/services/api';
+import {
+  gastosRegistralesApi,
+  GastoRegistral,
+  ResumenGastosRegistrales,
+} from '@/services/supabase/gastos-registrales';
+import {
+  adelantosApi,
+  Adelanto,
+  AdelantoResumen,
+} from '@/services/supabase/adelantos';
 
 // 23 conceptos de gastos registrales
 const CONCEPTOS_GR = [
@@ -57,42 +66,6 @@ const CON_MODAL_ESPECIAL = {
 };
 
 type ConceptoGR = (typeof CONCEPTOS_GR)[number];
-
-interface GastoRegistral {
-  id: number;
-  fecha: string;
-  concepto: ConceptoGR;
-  monto: number;
-  observaciones: string | null;
-  origen: 'MANUAL' | 'CAJA' | 'FORMULARIOS';
-  estado: 'Pagado' | 'Pendiente';
-  boleta1?: number;
-  boleta2?: number;
-  boleta3?: number;
-  boleta4?: number;
-  created_at: string;
-}
-
-interface Adelanto {
-  id: number;
-  empleado: 'DAMI' | 'MUMI';
-  fecha_adelanto: string;
-  monto: number;
-  estado: 'Pendiente' | 'Descontado';
-  fecha_descuento: string | null;
-  observaciones: string | null;
-  origen: 'MANUAL' | 'CAJA';
-  created_at: string;
-}
-
-interface ResumenEmpleado {
-  empleado: 'DAMI' | 'MUMI';
-  pendientes_mes_actual: number;
-  total_anio_actual: number;
-  total_historico: number;
-  adelantos_pendientes: Adelanto[];
-  adelantos_descontados: Adelanto[];
-}
 
 const GastosRegistro: React.FC = () => {
   const queryClient = useQueryClient();
@@ -341,10 +314,10 @@ const GastosRegistro: React.FC = () => {
     if (gasto) {
       setFormGasto({
         fecha: gasto.fecha,
-        concepto: gasto.concepto,
+        concepto: gasto.concepto as ConceptoGR,
         monto: gasto.monto,
         observaciones: gasto.observaciones || '',
-        estado: gasto.estado,
+        estado: gasto.estado as 'Pagado' | 'Pendiente',
         boleta1: gasto.boleta1,
         boleta2: gasto.boleta2,
         boleta3: gasto.boleta3,
@@ -534,8 +507,21 @@ const GastosRegistro: React.FC = () => {
             </div>
           </Card>
 
-          {/* Alertas y Resumen */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Alertas y Resumen - 2x2 Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card>
+              <div className="flex items-center gap-3">
+                <DollarSign className="h-8 w-8 text-primary" />
+                <div>
+                  <p className="text-sm text-text-secondary">Gasto del Mes</p>
+                  <p className="text-2xl font-bold text-text-primary">
+                    {formatCurrency(resumenGastos?.total_general || 0)}
+                  </p>
+                  <p className="text-xs text-text-muted">{gastosRegistrales.length} gastos</p>
+                </div>
+              </div>
+            </Card>
+
             <Card className="bg-error-light border-error">
               <div className="flex items-center gap-3">
                 <AlertCircle className="h-8 w-8 text-error" />
