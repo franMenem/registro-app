@@ -216,6 +216,30 @@ cuentas.forEach(c => {
 
 ---
 
+## 🐛 BUG FIX: Formularios Checkbox (2026-02-04)
+
+### Problema
+Los checkboxes para marcar vencimientos como pagados solo aparecían para estado `PENDIENTE`, pero no para `VENCIDO`. El usuario no podía pagar vencimientos vencidos.
+
+### Solución
+Modificado `Formularios.tsx` línea 711:
+```typescript
+// Antes
+{tabActivo === 'activos' && venc.estado === 'PENDIENTE' && (
+
+// Después
+{tabActivo === 'activos' && (venc.estado === 'PENDIENTE' || venc.estado === 'VENCIDO') && (
+```
+
+### Datos en Supabase
+```
+PAGADO: 927 vencimientos → Tab "Históricos"
+PENDIENTE: 55 vencimientos → Tab "Activos" (con checkbox)
+VENCIDO: 1838 vencimientos → Tab "Activos" (ahora con checkbox)
+```
+
+---
+
 ## 🗑️ ARCHIVOS ELIMINADOS (Cleanup)
 
 ### Eliminados del cliente:
@@ -235,6 +259,7 @@ cuentas.forEach(c => {
 ### Configuración limpiada:
 - Proxy `localhost:3000` removido de `client/vite.config.ts`
 - `.env.example` actualizado con variables Supabase
+- Tab "Historial" eliminado del Sidebar (no era necesario)
 
 ---
 
@@ -363,4 +388,4 @@ Cuando se sincroniza un depósito a una cuenta corriente:
 
 ---
 
-**Última actualización:** 2026-02-04 - Migración Fase 3 completada
+**Última actualización:** 2026-02-04 - Bug fix formularios checkbox + eliminado tab Historial
