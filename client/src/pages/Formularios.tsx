@@ -23,6 +23,33 @@ import {
   type Vencimiento,
 } from '@/services/supabase';
 
+// Helper: obtener el monto vigente de un formulario
+// - Si hay un vencimiento pendiente (fecha no pasó), usar el próximo a vencer
+// - Si todos vencieron, usar el monto del vencimiento 3 (el último)
+// - Si está pagado, usar el monto del vencimiento pagado
+const getMontoVigente = (vencimientos: Vencimiento[]): number => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // Si hay algún vencimiento pagado, devolver ese monto
+  const pagado = vencimientos.find((v) => v.estado === 'PAGADO');
+  if (pagado) return pagado.monto;
+
+  // Buscar el primer vencimiento que no haya vencido aún
+  const pendiente = vencimientos
+    .filter((v) => v.estado === 'PENDIENTE' && new Date(v.fecha_vencimiento) >= today)
+    .sort((a, b) => new Date(a.fecha_vencimiento).getTime() - new Date(b.fecha_vencimiento).getTime())[0];
+
+  if (pendiente) return pendiente.monto;
+
+  // Si todos vencieron, usar el vencimiento 3 (el último)
+  const venc3 = vencimientos.find((v) => v.numero_vencimiento === 3);
+  if (venc3) return venc3.monto;
+
+  // Fallback: primer vencimiento
+  return vencimientos[0]?.monto || 0;
+};
+
 const Formularios: React.FC = () => {
   const queryClient = useQueryClient();
   const today = new Date();
@@ -64,7 +91,7 @@ const Formularios: React.FC = () => {
   );
 
   // Tab activo: 'activos' o 'historicos'
-  const [tabActivo, setTabActivo] = useState<'activos' | 'historicos'>('activos');
+  const [tabActivo, setTabActivo] = useState<'activos' | 'historicos' | 'pagos'>('activos');
 
   // Paginación
   const [currentPage, setCurrentPage] = useState(1);
@@ -87,6 +114,11 @@ const Formularios: React.FC = () => {
   const { data: resumen } = useQuery({
     queryKey: ['formularios-resumen'],
     queryFn: formulariosApi.getResumen,
+  });
+
+  const { data: historialPagos = [] } = useQuery({
+    queryKey: ['formularios-historial-pagos'],
+    queryFn: formulariosApi.getHistorialPagos,
   });
 
   // Mutations
@@ -142,6 +174,7 @@ const Formularios: React.FC = () => {
       refetchFormularios();
       queryClient.invalidateQueries({ queryKey: ['formularios-resumen'] });
       queryClient.invalidateQueries({ queryKey: ['gastos-registrales'] });
+      queryClient.invalidateQueries({ queryKey: ['formularios-historial-pagos'] });
     },
     onError: (error: Error) => {
       showToast.error(error.message);
@@ -557,9 +590,24 @@ const Formularios: React.FC = () => {
         >
           Históricos ({formulariosHistoricos.length})
         </button>
+        <button
+          onClick={() => {
+            setTabActivo('pagos');
+            setVencimientosSeleccionados(new Set());
+          }}
+          className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+            tabActivo === 'pagos'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-text-secondary hover:text-text-primary'
+          }`}
+        >
+          Pagos ({historialPagos.length})
+        </button>
       </div>
 
-      {/* Filtros para activos e históricos */}
+      {/* Filtros y tabla para activos e históricos */}
+      {tabActivo !== 'pagos' && (
+        <>
       <Card>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
@@ -634,7 +682,6 @@ const Formularios: React.FC = () => {
         </div>
       </Card>
 
-      {/* Tabla */}
       <Card
         title={tabActivo === 'activos' ? 'Formularios Activos' : 'Formularios Históricos'}
         actions={
@@ -656,7 +703,7 @@ const Formularios: React.FC = () => {
                   Descripción
                 </th>
                 <th className="text-right py-3 px-4 text-sm font-semibold text-text-secondary">
-                  Monto Total
+                  Monto Vigente
                 </th>
                 <th className="text-left py-3 px-4 text-sm font-semibold text-text-secondary">
                   Vencimientos
@@ -699,7 +746,7 @@ const Formularios: React.FC = () => {
                       </div>
                     </td>
                     <td className="py-3 px-4 text-sm font-semibold text-right text-text-primary">
-                      {formatCurrency(formulario.monto)}
+                      {formatCurrency(getMontoVigente(formulario.vencimientos))}
                     </td>
                     <td className="py-3 px-4">
                       <div className="space-y-1">
@@ -720,7 +767,7 @@ const Formularios: React.FC = () => {
                               className={
                                 venc.estado === 'PAGADO'
                                   ? 'text-success font-medium'
-                                  : venc.estado === 'VENCIDO'
+                                  : new Date(venc.fecha_vencimiento) < today
                                   ? 'text-text-muted font-medium'
                                   : 'text-text-secondary'
                               }
@@ -736,7 +783,7 @@ const Formularios: React.FC = () => {
                             {venc.estado === 'PAGADO' && (
                               <CheckCircle2 className="h-3 w-3 text-success" />
                             )}
-                            {venc.estado === 'VENCIDO' && (
+                            {venc.estado !== 'PAGADO' && new Date(venc.fecha_vencimiento) < today && (
                               <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-200 text-gray-600">
                                 VENCIDO
                               </span>
@@ -788,6 +835,56 @@ const Formularios: React.FC = () => {
           />
         )}
       </Card>
+        </>
+      )}
+
+      {/* Tab Pagos - Historial de pagos de formularios */}
+      {tabActivo === 'pagos' && (
+        <Card title="Historial de Pagos" subtitle="Pagos de formularios registrados como gastos CARCOS">
+          {historialPagos.length === 0 ? (
+            <div className="py-8 text-center text-text-muted">
+              No hay pagos registrados
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {historialPagos.map((pago) => (
+                <div
+                  key={pago.id}
+                  className="border border-border rounded-lg p-4 hover:bg-background transition-colors"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-4 mb-2">
+                        <span className="text-lg font-semibold text-text-primary">
+                          {formatCurrency(pago.monto)}
+                        </span>
+                        <span className="text-sm text-text-secondary">
+                          {format(new Date(pago.fecha), 'dd/MM/yyyy')}
+                        </span>
+                      </div>
+                      {pago.formularios.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {pago.formularios.map((f, idx) => (
+                            <span
+                              key={idx}
+                              className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-primary-light text-primary"
+                            >
+                              {f.numero} - {formatCurrency(f.monto)}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {pago.observaciones && (
+                        <p className="text-sm text-text-muted mt-2">{pago.observaciones}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
 
       {/* Modal Formulario */}
       <Modal

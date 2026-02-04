@@ -16,7 +16,8 @@ const ControlPosnetDiario: React.FC = () => {
   const today = new Date();
   const [mesActual, setMesActual] = useState(today.getMonth() + 1);
   const [anioActual, setAnioActual] = useState(today.getFullYear());
-  const [editandoId, setEditandoId] = useState<number | null>(null);
+  const [editandoFecha, setEditandoFecha] = useState<string | null>(null);
+  const [editandoTotalPosnet, setEditandoTotalPosnet] = useState<number>(0);
   const [valorTemporal, setValorTemporal] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -33,11 +34,11 @@ const ControlPosnetDiario: React.FC = () => {
 
   // Mutation para actualizar monto ingresado
   const actualizarMontoMutation = useMutation({
-    mutationFn: ({ id, monto }: { id: number; monto: number }) =>
-      posnetDiarioApi.actualizarMontoIngresado(id, monto),
+    mutationFn: ({ fecha, monto, totalPosnet }: { fecha: string; monto: number; totalPosnet: number }) =>
+      posnetDiarioApi.actualizarMontoIngresado(fecha, monto, totalPosnet),
     onSuccess: () => {
       showToast.success('Monto actualizado correctamente');
-      setEditandoId(null);
+      setEditandoFecha(null);
       setValorTemporal('');
       refetchRegistros();
       queryClient.invalidateQueries({ queryKey: ['posnet-diario-resumen'] });
@@ -75,28 +76,32 @@ const ControlPosnetDiario: React.FC = () => {
   };
 
   const handleEditarClick = (registro: RegistroPosnet) => {
-    setEditandoId(registro.id);
+    setEditandoFecha(registro.fecha);
+    setEditandoTotalPosnet(registro.total_posnet);
     setValorTemporal(registro.monto_ingresado_banco.toString());
   };
 
-  const handleGuardar = (id: number) => {
+  const handleGuardar = () => {
+    if (!editandoFecha) return;
+
     const monto = parseFloat(valorTemporal);
     if (isNaN(monto) || monto < 0) {
       showToast.error('Monto inválido');
       return;
     }
 
-    actualizarMontoMutation.mutate({ id, monto });
+    actualizarMontoMutation.mutate({ fecha: editandoFecha, monto, totalPosnet: editandoTotalPosnet });
   };
 
   const handleCancelar = () => {
-    setEditandoId(null);
+    setEditandoFecha(null);
+    setEditandoTotalPosnet(0);
     setValorTemporal('');
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent, id: number) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
-      handleGuardar(id);
+      handleGuardar();
     } else if (e.key === 'Escape') {
       handleCancelar();
     }
@@ -356,7 +361,7 @@ const ControlPosnetDiario: React.FC = () => {
             </thead>
             <tbody>
               {registrosCompletos.map((registro) => {
-                const estaEditando = editandoId === registro.id;
+                const estaEditando = editandoFecha === registro.fecha;
                 const tieneMovimientos = registro.total_posnet > 0;
 
                 return (
@@ -388,8 +393,8 @@ const ControlPosnetDiario: React.FC = () => {
                             step="0.01"
                             value={valorTemporal}
                             onChange={(e) => setValorTemporal(e.target.value)}
-                            onKeyDown={(e) => handleKeyDown(e, registro.id)}
-                            onBlur={() => handleGuardar(registro.id)}
+                            onKeyDown={handleKeyDown}
+                            onBlur={handleGuardar}
                             autoFocus
                             className="w-full px-2 py-1 rounded border border-primary bg-card text-right text-sm font-medium"
                           />

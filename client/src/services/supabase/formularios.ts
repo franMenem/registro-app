@@ -71,15 +71,26 @@ export const formulariosApi = {
     }
 
     // Get all vencimientos for these formularios
+    // Supabase tiene un límite para .in() (~100-1000 elementos), dividimos en batches
     const formIds = formularios.map((f) => f.id);
-    const { data: vencimientos, error: vencError } = await supabase
-      .from('formularios_vencimientos')
-      .select('*')
-      .in('formulario_id', formIds)
-      .order('numero_vencimiento', { ascending: true });
+    const BATCH_SIZE = 100;
+    const vencimientos: Vencimiento[] = [];
 
-    if (vencError) {
-      throw new Error(`Error al obtener vencimientos: ${vencError.message}`);
+    for (let i = 0; i < formIds.length; i += BATCH_SIZE) {
+      const batchIds = formIds.slice(i, i + BATCH_SIZE);
+      const { data: batchVenc, error: vencError } = await supabase
+        .from('formularios_vencimientos')
+        .select('*')
+        .in('formulario_id', batchIds)
+        .order('numero_vencimiento', { ascending: true });
+
+      if (vencError) {
+        throw new Error(`Error al obtener vencimientos: ${vencError.message}`);
+      }
+
+      if (batchVenc) {
+        vencimientos.push(...batchVenc);
+      }
     }
 
     // Group vencimientos by formulario_id
@@ -155,7 +166,7 @@ export const formulariosApi = {
     // Get all vencimientos
     const { data: vencimientos, error: vencError } = await supabase
       .from('formularios_vencimientos')
-      .select('formulario_id, monto, estado');
+      .select('formulario_id, monto, estado, fecha_vencimiento, numero_vencimiento');
 
     if (vencError) {
       throw new Error(`Error al obtener vencimientos: ${vencError.message}`);
@@ -164,25 +175,65 @@ export const formulariosApi = {
     const totalFormularios = formularios?.length || 0;
     const totalVencimientos = vencimientos?.length || 0;
 
-    // Calculate stats from vencimientos
+    // Agrupar vencimientos por formulario
+    const vencByFormId = new Map<number, typeof vencimientos>();
+    for (const v of vencimientos || []) {
+      if (!vencByFormId.has(v.formulario_id)) {
+        vencByFormId.set(v.formulario_id, []);
+      }
+      vencByFormId.get(v.formulario_id)!.push(v);
+    }
+
+    // Encontrar formularios que tienen al menos un vencimiento PAGADO
+    const formulariosPagados = new Set<number>();
+    for (const [formId, vencs] of vencByFormId) {
+      if (vencs.some((v) => v.estado === 'PAGADO')) {
+        formulariosPagados.add(formId);
+      }
+    }
+
+    // Calcular estadísticas
+    // Para formularios sin pagar: contar solo 1 vencimiento (el vigente) por formulario
     let vencimientosPendientes = 0;
     let montoPendiente = 0;
     let vencimientosPagados = 0;
     let montoPagado = 0;
     const formulariosConDeuda = new Set<number>();
 
+    // Contar vencimientos pagados
     for (const v of vencimientos || []) {
-      if (v.estado === 'PENDIENTE' || v.estado === 'VENCIDO') {
-        vencimientosPendientes++;
-        montoPendiente += Number(v.monto);
-        formulariosConDeuda.add(v.formulario_id);
-      } else if (v.estado === 'PAGADO') {
+      if (v.estado === 'PAGADO') {
         vencimientosPagados++;
         montoPagado += Number(v.monto);
       }
     }
 
-    // saldo_pendiente_formularios is the sum of monto from formularios that have pending vencimientos
+    // Para formularios sin pagar, contar solo 1 vencimiento vigente por formulario
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    for (const [formId, vencs] of vencByFormId) {
+      // Si el formulario ya tiene un pago, no es deuda
+      if (formulariosPagados.has(formId)) continue;
+
+      formulariosConDeuda.add(formId);
+      vencimientosPendientes++; // 1 por formulario
+
+      // Calcular monto vigente: próximo a vencer, o venc 3 si todos vencieron
+      const pendiente = vencs
+        .filter((v) => new Date(v.fecha_vencimiento) >= today)
+        .sort((a, b) => new Date(a.fecha_vencimiento).getTime() - new Date(b.fecha_vencimiento).getTime())[0];
+
+      if (pendiente) {
+        montoPendiente += Number(pendiente.monto);
+      } else {
+        // Todos vencieron, usar vencimiento 3
+        const venc3 = vencs.find((v) => v.numero_vencimiento === 3);
+        montoPendiente += Number(venc3?.monto || vencs[0]?.monto || 0);
+      }
+    }
+
+    // saldo_pendiente_formularios: suma del monto de formularios SIN ningún vencimiento pagado
     let saldoPendienteFormularios = 0;
     for (const f of formularios || []) {
       if (formulariosConDeuda.has(f.id)) {
@@ -359,33 +410,45 @@ export const formulariosApi = {
       throw new Error('Debe seleccionar al menos un vencimiento');
     }
 
-    // Get the vencimientos to pay
+    // Get the vencimientos to pay WITH formulario info
     const { data: vencimientos, error: fetchError } = await supabase
       .from('formularios_vencimientos')
-      .select('id, monto, estado')
+      .select('id, monto, estado, formulario_id, formularios(numero)')
       .in('id', vencimientoIds);
 
     if (fetchError) {
       throw new Error(`Error al obtener vencimientos: ${fetchError.message}`);
     }
 
-    // Calculate total
+    // Calculate total and collect formulario numbers
     let totalPagado = 0;
+    const numerosFormularios: string[] = [];
     for (const v of vencimientos || []) {
       if (v.estado === 'PAGADO') {
         throw new Error('Uno de los vencimientos ya está pagado');
       }
       totalPagado += Number(v.monto);
+      // @ts-expect-error - Supabase join returns nested object
+      const numero = v.formularios?.numero;
+      if (numero && !numerosFormularios.includes(numero)) {
+        numerosFormularios.push(numero);
+      }
     }
+
+    // Create observaciones with formulario numbers
+    const observaciones = numerosFormularios.length > 0
+      ? `Formularios: ${numerosFormularios.join(', ')}`
+      : null;
 
     // Create gasto_registral (CARCOS)
     const { data: gasto, error: gastoError } = await supabase
       .from('gastos_registrales')
       .insert({
-        tipo: 'CARCOS',
-        descripcion: `Pago de ${vencimientoIds.length} vencimiento(s) de formularios`,
+        concepto: 'CARCOS',
         monto: totalPagado,
         fecha: fechaPago,
+        observaciones,
+        origen: 'FORMULARIOS',
       })
       .select()
       .single();
@@ -515,5 +578,96 @@ export const formulariosApi = {
     }
 
     return { insertados, errores };
+  },
+
+  // Obtener historial de pagos de formularios (gastos registrales CARCOS)
+  getHistorialPagos: async (): Promise<{
+    id: number;
+    fecha: string;
+    monto: number;
+    observaciones: string | null;
+    formularios: { numero: string; monto: number }[];
+  }[]> => {
+    // Obtener gastos registrales de concepto CARCOS
+    const { data: gastos, error: gastosError } = await supabase
+      .from('gastos_registrales')
+      .select('id, fecha, monto, observaciones')
+      .eq('concepto', 'CARCOS')
+      .order('fecha', { ascending: false });
+
+    if (gastosError) {
+      throw new Error(`Error al obtener historial de pagos: ${gastosError.message}`);
+    }
+
+    if (!gastos || gastos.length === 0) {
+      return [];
+    }
+
+    // Obtener los vencimientos asociados a cada gasto
+    const gastoIds = gastos.map((g) => g.id);
+    const { data: vencimientos, error: vencError } = await supabase
+      .from('formularios_vencimientos')
+      .select('gasto_registral_id, monto, formularios(numero)')
+      .in('gasto_registral_id', gastoIds);
+
+    if (vencError) {
+      throw new Error(`Error al obtener vencimientos: ${vencError.message}`);
+    }
+
+    // Agrupar vencimientos por gasto_registral_id
+    const vencByGasto = new Map<number, { numero: string; monto: number }[]>();
+    for (const v of vencimientos || []) {
+      if (!v.gasto_registral_id) continue;
+      if (!vencByGasto.has(v.gasto_registral_id)) {
+        vencByGasto.set(v.gasto_registral_id, []);
+      }
+      // @ts-expect-error - Supabase join returns nested object
+      const numero = v.formularios?.numero || 'N/A';
+      vencByGasto.get(v.gasto_registral_id)!.push({
+        numero,
+        monto: Number(v.monto),
+      });
+    }
+
+    // Combinar gastos con sus formularios
+    return gastos.map((g) => ({
+      ...g,
+      formularios: vencByGasto.get(g.id) || [],
+    }));
+  },
+
+  // Ver formularios pendientes agrupados por año
+  verPendientesPorAnio: async (): Promise<
+    { anio: number; cantidad_formularios: number; ejemplo_numeros: string[] }[]
+  > => {
+    const { data, error } = await supabase.rpc('ver_formularios_pendientes_por_anio');
+
+    if (error) {
+      throw new Error(`Error al ver pendientes por año: ${error.message}`);
+    }
+
+    return data || [];
+  },
+
+  // Marcar formularios históricos como pagados (para migración de datos)
+  marcarHistoricosPagados: async (
+    anioLimite: number = 2025
+  ): Promise<{ formularios_actualizados: number; detalle: unknown[] }> => {
+    const { data, error } = await supabase.rpc('marcar_formularios_historicos_pagados', {
+      p_anio_limite: anioLimite,
+    });
+
+    if (error) {
+      throw new Error(`Error al marcar históricos: ${error.message}`);
+    }
+
+    if (data && data.length > 0) {
+      return {
+        formularios_actualizados: data[0].formularios_actualizados,
+        detalle: data[0].detalle || [],
+      };
+    }
+
+    return { formularios_actualizados: 0, detalle: [] };
   },
 };

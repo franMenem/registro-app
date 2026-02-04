@@ -1,4 +1,5 @@
 // Supabase service for Control POSNET Diario
+// Aggregates POSNET data from movimientos table by date
 
 import { supabase } from '@/lib/supabase';
 
@@ -36,26 +37,120 @@ export interface ImportResult {
   registros_procesados: number;
 }
 
+// Interface for movimiento with concepto join (raw from Supabase)
+interface RawMovimiento {
+  id: number;
+  fecha: string;
+  tipo: 'RENTAS' | 'CAJA';
+  monto: number;
+  conceptos: { nombre: string } | null;
+}
+
+// Interface for bank deposit record
+interface DepositoBancario {
+  id: number;
+  fecha: string;
+  monto: number;
+}
+
 export const posnetDiarioApi = {
-  // Get all records for a specific month
+  // Get all records for a specific month by aggregating from movimientos table
   getRegistrosMes: async (mes: number, anio: number): Promise<RegistroPosnet[]> => {
     // Calculate date range for the month
     const fechaInicio = `${anio}-${mes.toString().padStart(2, '0')}-01`;
     const lastDay = new Date(anio, mes, 0).getDate();
     const fechaFin = `${anio}-${mes.toString().padStart(2, '0')}-${lastDay.toString().padStart(2, '0')}`;
 
-    const { data, error } = await supabase
-      .from('control_posnet_diario')
-      .select('*')
+    // Get all POSNET movements for the month from movimientos table
+    const { data: movimientos, error: movError } = await supabase
+      .from('movimientos')
+      .select(`
+        id,
+        fecha,
+        tipo,
+        monto,
+        conceptos (nombre)
+      `)
       .gte('fecha', fechaInicio)
       .lte('fecha', fechaFin)
       .order('fecha', { ascending: true });
 
-    if (error) {
-      throw new Error(`Error al obtener registros POSNET: ${error.message}`);
+    if (movError) {
+      throw new Error(`Error al obtener movimientos POSNET: ${movError.message}`);
     }
 
-    return data || [];
+    // Filter only POSNET movements
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const posnetMovimientos: RawMovimiento[] = (movimientos || [])
+      .filter((m: any) => {
+        const nombre = (m.conceptos?.nombre || '').toUpperCase();
+        return nombre === 'POSNET' || nombre === 'POSNET CAJA';
+      })
+      .map((m: any) => ({
+        id: m.id,
+        fecha: m.fecha,
+        tipo: m.tipo,
+        monto: m.monto,
+        conceptos: m.conceptos,
+      }));
+
+    // Get bank deposits from control_posnet_diario (if any exist)
+    const { data: depositos } = await supabase
+      .from('control_posnet_diario')
+      .select('id, fecha, monto_ingresado_banco')
+      .gte('fecha', fechaInicio)
+      .lte('fecha', fechaFin);
+
+    // Create a map of bank deposits by date
+    const depositosMap = new Map<string, DepositoBancario>();
+    (depositos || []).forEach((d: { id: number; fecha: string; monto_ingresado_banco: number }) => {
+      depositosMap.set(d.fecha, { id: d.id, fecha: d.fecha, monto: d.monto_ingresado_banco });
+    });
+
+    // Aggregate movimientos by date
+    const registrosPorFecha = new Map<string, {
+      monto_rentas: number;
+      monto_caja: number;
+    }>();
+
+    for (const mov of posnetMovimientos) {
+      const existing = registrosPorFecha.get(mov.fecha) || { monto_rentas: 0, monto_caja: 0 };
+
+      if (mov.tipo === 'RENTAS') {
+        existing.monto_rentas += Number(mov.monto) || 0;
+      } else if (mov.tipo === 'CAJA') {
+        existing.monto_caja += Number(mov.monto) || 0;
+      }
+
+      registrosPorFecha.set(mov.fecha, existing);
+    }
+
+    // Convert to RegistroPosnet array
+    const registros: RegistroPosnet[] = [];
+    let idCounter = 1;
+
+    registrosPorFecha.forEach((valores, fecha) => {
+      const deposito = depositosMap.get(fecha);
+      const totalPosnet = valores.monto_rentas + valores.monto_caja;
+      const montoIngresado = deposito?.monto || 0;
+
+      registros.push({
+        id: deposito?.id || idCounter++,
+        fecha,
+        monto_rentas: valores.monto_rentas,
+        monto_caja: valores.monto_caja,
+        total_posnet: totalPosnet,
+        monto_ingresado_banco: montoIngresado,
+        diferencia: totalPosnet - montoIngresado,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+    });
+
+    // Sort by fecha ascending
+    registros.sort((a, b) => a.fecha.localeCompare(b.fecha));
+
+    return registros;
   },
 
   // Get monthly summary
@@ -106,35 +201,52 @@ export const posnetDiarioApi = {
     };
   },
 
-  // Update the bank deposit amount for a record
+  // Update the bank deposit amount for a record by fecha
+  // Uses upsert since the record might not exist in control_posnet_diario yet
   actualizarMontoIngresado: async (
-    id: number,
-    monto: number
+    fecha: string,
+    monto: number,
+    totalPosnet: number
   ): Promise<{ message: string }> => {
-    // Get the current record to calculate new diferencia
-    const { data: registro, error: fetchError } = await supabase
+    const nuevaDiferencia = totalPosnet - monto;
+
+    // Check if record exists
+    const { data: existing } = await supabase
       .from('control_posnet_diario')
-      .select('total_posnet')
-      .eq('id', id)
+      .select('id')
+      .eq('fecha', fecha)
       .single();
 
-    if (fetchError) {
-      throw new Error(`Error al obtener registro: ${fetchError.message}`);
-    }
+    if (existing) {
+      // Update existing
+      const { error } = await supabase
+        .from('control_posnet_diario')
+        .update({
+          monto_ingresado_banco: monto,
+          diferencia: nuevaDiferencia,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existing.id);
 
-    const nuevaDiferencia = (registro.total_posnet || 0) - monto;
+      if (error) {
+        throw new Error(`Error al actualizar monto: ${error.message}`);
+      }
+    } else {
+      // Insert new record
+      const { error } = await supabase
+        .from('control_posnet_diario')
+        .insert({
+          fecha,
+          monto_rentas: 0,
+          monto_caja: 0,
+          total_posnet: totalPosnet,
+          monto_ingresado_banco: monto,
+          diferencia: nuevaDiferencia,
+        });
 
-    const { error } = await supabase
-      .from('control_posnet_diario')
-      .update({
-        monto_ingresado_banco: monto,
-        diferencia: nuevaDiferencia,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', id);
-
-    if (error) {
-      throw new Error(`Error al actualizar monto: ${error.message}`);
+      if (error) {
+        throw new Error(`Error al crear registro: ${error.message}`);
+      }
     }
 
     return { message: 'Monto actualizado correctamente' };

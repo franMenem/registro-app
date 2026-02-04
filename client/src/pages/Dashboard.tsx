@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { DollarSign, Wallet, Clock, Calendar, Plus, Check, AlertCircle } from 'lucide-react';
+import { DollarSign, Wallet, Clock, Calendar, Plus, Check, AlertCircle, Trash2, ClipboardList } from 'lucide-react';
 import { MetricCard } from '@/components/ui/MetricCard';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -11,12 +11,67 @@ import { dashboardApi, controlesApi, ControlPendiente } from '@/services/supabas
 import { formatCurrency, formatDate } from '@/utils/format';
 import { showToast } from '@/components/ui/Toast';
 
+// Tipo para las tareas/recordatorios
+interface Tarea {
+  id: string;
+  texto: string;
+  completada: boolean;
+  fecha: string;
+}
+
+const TAREAS_KEY = 'registro_app_tareas';
+
 const Dashboard: React.FC = () => {
   const queryClient = useQueryClient();
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean;
     control: ControlPendiente | null;
   }>({ isOpen: false, control: null });
+
+  // Estado para tareas/recordatorios (localStorage)
+  const [tareas, setTareas] = useState<Tarea[]>([]);
+  const [nuevaTarea, setNuevaTarea] = useState('');
+
+  // Cargar tareas de localStorage al montar
+  useEffect(() => {
+    const saved = localStorage.getItem(TAREAS_KEY);
+    if (saved) {
+      try {
+        setTareas(JSON.parse(saved));
+      } catch {
+        setTareas([]);
+      }
+    }
+  }, []);
+
+  // Guardar tareas en localStorage cuando cambian
+  useEffect(() => {
+    localStorage.setItem(TAREAS_KEY, JSON.stringify(tareas));
+  }, [tareas]);
+
+  const agregarTarea = () => {
+    if (!nuevaTarea.trim()) return;
+    const tarea: Tarea = {
+      id: Date.now().toString(),
+      texto: nuevaTarea.trim(),
+      completada: false,
+      fecha: new Date().toISOString(),
+    };
+    setTareas([tarea, ...tareas]);
+    setNuevaTarea('');
+  };
+
+  const toggleTarea = (id: string) => {
+    setTareas(tareas.map((t) => (t.id === id ? { ...t, completada: !t.completada } : t)));
+  };
+
+  const eliminarTarea = (id: string) => {
+    setTareas(tareas.filter((t) => t.id !== id));
+  };
+
+  const limpiarCompletadas = () => {
+    setTareas(tareas.filter((t) => !t.completada));
+  };
 
   // Fetch dashboard stats
   const { data: stats, isLoading: statsLoading } = useQuery({
@@ -223,6 +278,78 @@ const Dashboard: React.FC = () => {
           <Link to="/planillas">
             <Button variant="outline">Ver Planillas</Button>
           </Link>
+        </div>
+      </Card>
+
+      {/* Recordatorios / Tareas */}
+      <Card
+        title="📋 Mis Recordatorios"
+        subtitle="Tareas y notas para no olvidar"
+        actions={
+          tareas.some((t) => t.completada) && (
+            <Button variant="outline" size="sm" onClick={limpiarCompletadas}>
+              Limpiar completadas
+            </Button>
+          )
+        }
+      >
+        <div className="space-y-4">
+          {/* Input para nueva tarea */}
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={nuevaTarea}
+              onChange={(e) => setNuevaTarea(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && agregarTarea()}
+              placeholder="Agregar recordatorio... (Enter para guardar)"
+              className="flex-1 px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+            />
+            <Button variant="primary" size="sm" icon={Plus} onClick={agregarTarea}>
+              Agregar
+            </Button>
+          </div>
+
+          {/* Lista de tareas */}
+          {tareas.length === 0 ? (
+            <div className="flex items-center justify-center py-8 text-text-muted">
+              <ClipboardList className="h-5 w-5 mr-2" />
+              <span>No hay recordatorios</span>
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {tareas.map((tarea) => (
+                <div
+                  key={tarea.id}
+                  className={`flex items-center gap-3 p-3 rounded-lg border ${
+                    tarea.completada
+                      ? 'bg-gray-50 border-gray-200'
+                      : 'bg-background border-border hover:border-primary'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={tarea.completada}
+                    onChange={() => toggleTarea(tarea.id)}
+                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+                  />
+                  <span
+                    className={`flex-1 text-sm ${
+                      tarea.completada ? 'text-text-muted line-through' : 'text-text-primary'
+                    }`}
+                  >
+                    {tarea.texto}
+                  </span>
+                  <button
+                    onClick={() => eliminarTarea(tarea.id)}
+                    className="p-1 text-text-muted hover:text-error transition-colors"
+                    title="Eliminar"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </Card>
 

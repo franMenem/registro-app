@@ -122,8 +122,8 @@ export const dashboardApi = {
         .select('monto, conceptos!inner(nombre)')
         .gte('fecha', inicioMes)
         .eq('conceptos.nombre', 'ARANCEL'),
-      // Efectivo en mano
-      supabase.from('control_efectivo_config').select('efectivo_en_mano').single(),
+      // Efectivo en mano (saldo_inicial en la tabla)
+      supabase.from('control_efectivo_config').select('saldo_inicial').single(),
     ]);
 
     // Check for critical errors (non-critical ones like empty efectivo_config are OK)
@@ -184,7 +184,7 @@ export const dashboardApi = {
       total_quincenal_pendiente: totalQuincenalPendiente,
       alertas_pagos: (alertasSemanales || 0) + (alertasQuincenales || 0),
       total_arancel_mes: totalArancelMes,
-      efectivo_en_mano: efectivoConfig?.efectivo_en_mano || 0,
+      efectivo_en_mano: efectivoConfig?.saldo_inicial || 0,
     };
   },
 
