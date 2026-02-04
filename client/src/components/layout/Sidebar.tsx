@@ -12,7 +12,6 @@ import {
   Users,
   BarChart2,
   Settings,
-  History,
   CreditCard,
 } from 'lucide-react';
 
@@ -97,11 +96,6 @@ const navItems: NavItem[] = [
     path: '/planillas',
     label: 'Planillas',
     icon: <FileSpreadsheet className="h-5 w-5" />,
-  },
-  {
-    path: '/historial',
-    label: 'Historial',
-    icon: <History className="h-5 w-5" />,
   },
   {
     path: '/reportes',

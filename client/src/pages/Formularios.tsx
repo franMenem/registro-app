@@ -708,7 +708,7 @@ const Formularios: React.FC = () => {
                             key={venc.id}
                             className="flex items-center gap-2 text-xs"
                           >
-                            {tabActivo === 'activos' && venc.estado === 'PENDIENTE' && (
+                            {tabActivo === 'activos' && (venc.estado === 'PENDIENTE' || venc.estado === 'VENCIDO') && (
                               <input
                                 type="checkbox"
                                 checked={vencimientosSeleccionados.has(venc.id)}

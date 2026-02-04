@@ -17,7 +17,6 @@ import ControlPosnetDiario from './pages/ControlPosnetDiario';
 import Formularios from './pages/Formularios';
 import Clientes from './pages/Clientes';
 import Planillas from './pages/Planillas';
-// import HistorialMovimientos from './pages/HistorialMovimientos';
 import Reportes from './pages/Reportes';
 import Configuracion from './pages/Configuracion';
 import VEPs from './pages/VEPs';
@@ -56,7 +55,6 @@ function App() {
             <Route path="formularios" element={<Formularios />} />
             <Route path="clientes" element={<Clientes />} />
             <Route path="planillas" element={<Planillas />} />
-            {/* <Route path="historial" element={<HistorialMovimientos />} /> */}
             <Route path="reportes" element={<Reportes />} />
             <Route path="configuracion" element={<Configuracion />} />
           </Route>
