@@ -45,7 +45,8 @@ interface Resumen {
 
 const Clientes: React.FC = () => {
   const queryClient = useQueryClient();
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchCuit, setSearchCuit] = useState('');
+  const [searchRazonSocial, setSearchRazonSocial] = useState('');
 
   // Paginación
   const [currentPage, setCurrentPage] = useState(1);
@@ -78,10 +79,26 @@ const Clientes: React.FC = () => {
     email: '',
   });
 
-  // Queries
-  const { data: clientes = [] } = useQuery({
-    queryKey: ['clientes', searchTerm],
-    queryFn: () => clientesApi.getAll(searchTerm),
+  // Queries - traemos todos y filtramos en frontend (son pocos clientes)
+  const { data: allClientes = [] } = useQuery({
+    queryKey: ['clientes'],
+    queryFn: () => clientesApi.getAll(),
+  });
+
+  // Filtrar por CUIT y/o Razón Social (OR: cualquiera que coincida)
+  const clientes = allClientes.filter((cliente) => {
+    const cuitNormalizado = searchCuit.replace(/-/g, '').toLowerCase();
+    const clienteCuitNormalizado = cliente.cuit.replace(/-/g, '').toLowerCase();
+
+    const matchCuit = !searchCuit || clienteCuitNormalizado.includes(cuitNormalizado);
+    const matchRazon = !searchRazonSocial || cliente.razon_social.toLowerCase().includes(searchRazonSocial.toLowerCase());
+
+    // Si ambos tienen valor, deben coincidir ambos (AND)
+    // Si solo uno tiene valor, usa ese
+    if (searchCuit && searchRazonSocial) {
+      return matchCuit && matchRazon;
+    }
+    return matchCuit && matchRazon;
   });
 
   const { data: resumen } = useQuery<Resumen>({
@@ -204,10 +221,10 @@ const Clientes: React.FC = () => {
   const endIndex = startIndex + itemsPerPage;
   const clientesAMostrar = clientes.slice(startIndex, endIndex);
 
-  // Reset page cuando cambia searchTerm
+  // Reset page cuando cambian los filtros
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm]);
+  }, [searchCuit, searchRazonSocial]);
 
   return (
     <div className="space-y-6 p-6">
@@ -227,19 +244,39 @@ const Clientes: React.FC = () => {
 
       {/* Search Bar */}
       <Card className="p-4">
-        <div className="flex items-center gap-3">
-          <Search className="h-5 w-5 text-text-secondary" />
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Buscar por CUIT o razón social..."
-            className="flex-1 px-3 py-2 bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-          />
-          {searchTerm && (
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex items-center gap-3 flex-1">
+            <Search className="h-5 w-5 text-text-secondary flex-shrink-0" />
+            <div className="flex-1">
+              <label className="block text-xs text-text-secondary mb-1">CUIT</label>
+              <CUITInput
+                value={searchCuit}
+                onChange={setSearchCuit}
+                className="w-full px-3 py-2 bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary font-mono"
+                placeholder="20-12345678-9"
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-3 flex-1">
+            <Search className="h-5 w-5 text-text-secondary flex-shrink-0 md:hidden" />
+            <div className="flex-1">
+              <label className="block text-xs text-text-secondary mb-1">Razón Social</label>
+              <input
+                type="text"
+                value={searchRazonSocial}
+                onChange={(e) => setSearchRazonSocial(e.target.value)}
+                placeholder="Buscar por nombre..."
+                className="w-full px-3 py-2 bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+          </div>
+          {(searchCuit || searchRazonSocial) && (
             <button
-              onClick={() => setSearchTerm('')}
-              className="text-text-secondary hover:text-text-primary"
+              onClick={() => {
+                setSearchCuit('');
+                setSearchRazonSocial('');
+              }}
+              className="text-text-secondary hover:text-text-primary self-end pb-2"
             >
               Limpiar
             </button>
@@ -310,7 +347,7 @@ const Clientes: React.FC = () => {
               {clientesAMostrar.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="px-6 py-8 text-center text-text-secondary">
-                    {searchTerm ? 'No se encontraron clientes' : 'No hay clientes registrados'}
+                    {(searchCuit || searchRazonSocial) ? 'No se encontraron clientes' : 'No hay clientes registrados'}
                   </td>
                 </tr>
               ) : (

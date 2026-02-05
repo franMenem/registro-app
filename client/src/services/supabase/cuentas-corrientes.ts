@@ -200,22 +200,19 @@ export const cuentasApi = {
 
   /**
    * Eliminar movimiento y recalcular saldos
+   * Usa recalcular_saldos_cuenta() para actualizar todos los saldo_resultante posteriores
    */
   deleteMovimiento: async (movimientoId: number): Promise<{ message: string }> => {
-    // Obtener movimiento para saber el monto y cuenta
+    // Obtener movimiento para saber la cuenta
     const { data: movimiento, error: getError } = await supabase
       .from('movimientos_cc')
-      .select('*, cuentas_corrientes(saldo_actual)')
+      .select('cuenta_id')
       .eq('id', movimientoId)
       .single();
 
     if (getError) throw new Error(getError.message);
 
-    // Calcular ajuste al saldo
-    const ajuste =
-      movimiento.tipo_movimiento === 'INGRESO'
-        ? -Number(movimiento.monto)
-        : Number(movimiento.monto);
+    const cuentaId = movimiento.cuenta_id;
 
     // Eliminar movimiento
     const { error: deleteError } = await supabase
@@ -225,14 +222,12 @@ export const cuentasApi = {
 
     if (deleteError) throw new Error(deleteError.message);
 
-    // Actualizar saldo de la cuenta
-    const nuevoSaldo = Number(movimiento.cuentas_corrientes.saldo_actual) + ajuste;
-    const { error: updateError } = await supabase
-      .from('cuentas_corrientes')
-      .update({ saldo_actual: nuevoSaldo })
-      .eq('id', movimiento.cuenta_id);
+    // Recalcular todos los saldos de la cuenta (incluye saldo_actual y saldo_resultante)
+    const { error: recalcError } = await supabase.rpc('recalcular_saldos_cuenta', {
+      p_cuenta_id: cuentaId,
+    });
 
-    if (updateError) throw new Error(updateError.message);
+    if (recalcError) throw new Error(recalcError.message);
 
     return { message: 'Movimiento eliminado correctamente' };
   },

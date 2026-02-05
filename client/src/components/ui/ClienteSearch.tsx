@@ -15,14 +15,27 @@ interface ClienteSearchProps {
   className?: string;
 }
 
+// Función para formatear CUIT con guiones
+function formatCUIT(input: string): string {
+  const numbers = input.replace(/\D/g, '');
+  const limited = numbers.slice(0, 11);
+  if (limited.length <= 2) {
+    return limited;
+  } else if (limited.length <= 10) {
+    return `${limited.slice(0, 2)}-${limited.slice(2)}`;
+  } else {
+    return `${limited.slice(0, 2)}-${limited.slice(2, 10)}-${limited.slice(10)}`;
+  }
+}
+
 export const ClienteSearch: React.FC<ClienteSearchProps> = ({
   clientes,
   value,
   onChange,
-  placeholder = 'Buscar cliente por CUIT o nombre...',
   className = '',
 }) => {
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchCuit, setSearchCuit] = useState('');
+  const [searchRazonSocial, setSearchRazonSocial] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
   const [selectedCliente, setSelectedCliente] = useState<Cliente | null>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -32,10 +45,12 @@ export const ClienteSearch: React.FC<ClienteSearchProps> = ({
     if (value) {
       const cliente = clientes.find((c) => c.id === value);
       setSelectedCliente(cliente || null);
-      setSearchTerm('');
+      setSearchCuit('');
+      setSearchRazonSocial('');
     } else {
       setSelectedCliente(null);
-      setSearchTerm('');
+      setSearchCuit('');
+      setSearchRazonSocial('');
     }
   }, [value, clientes]);
 
@@ -51,30 +66,50 @@ export const ClienteSearch: React.FC<ClienteSearchProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Filtrar clientes según el término de búsqueda
-  const filteredClientes = searchTerm
-    ? clientes.filter(
-        (c) =>
-          c.cuit.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          c.razon_social.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    : clientes;
+  // Filtrar clientes según los términos de búsqueda
+  const filteredClientes = clientes.filter((cliente) => {
+    const cuitNormalizado = searchCuit.replace(/-/g, '').toLowerCase();
+    const clienteCuitNormalizado = cliente.cuit.replace(/-/g, '').toLowerCase();
+
+    const matchCuit = !searchCuit || clienteCuitNormalizado.includes(cuitNormalizado);
+    const matchRazon = !searchRazonSocial || cliente.razon_social.toLowerCase().includes(searchRazonSocial.toLowerCase());
+
+    return matchCuit && matchRazon;
+  });
+
+  const hasSearchTerms = searchCuit || searchRazonSocial;
 
   const handleSelectCliente = (cliente: Cliente) => {
     setSelectedCliente(cliente);
-    setSearchTerm('');
+    setSearchCuit('');
+    setSearchRazonSocial('');
     setShowDropdown(false);
     onChange(cliente.id);
   };
 
   const handleClearCliente = () => {
     setSelectedCliente(null);
-    setSearchTerm('');
+    setSearchCuit('');
+    setSearchRazonSocial('');
     onChange(undefined);
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchTerm(e.target.value);
+  const handleCuitChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatCUIT(e.target.value);
+    setSearchCuit(formatted);
+    setShowDropdown(true);
+  };
+
+  const handleCuitPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const pastedText = e.clipboardData.getData('text');
+    const formatted = formatCUIT(pastedText);
+    setSearchCuit(formatted);
+    setShowDropdown(true);
+  };
+
+  const handleRazonSocialChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchRazonSocial(e.target.value);
     setShowDropdown(true);
   };
 
@@ -102,17 +137,37 @@ export const ClienteSearch: React.FC<ClienteSearchProps> = ({
           </button>
         </div>
       ) : (
-        // Input de búsqueda
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-text-secondary" />
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={handleInputChange}
-            onFocus={handleInputFocus}
-            placeholder={placeholder}
-            className="w-full pl-10 pr-4 py-2 border border-border rounded-lg bg-background text-text-primary focus:outline-none focus:ring-2 focus:ring-primary"
-          />
+        // Inputs de búsqueda
+        <div className="space-y-2">
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <label className="block text-xs text-text-secondary mb-1">CUIT</label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-text-secondary" />
+                <input
+                  type="text"
+                  value={searchCuit}
+                  onChange={handleCuitChange}
+                  onPaste={handleCuitPaste}
+                  onFocus={handleInputFocus}
+                  placeholder="20-12345678-9"
+                  maxLength={13}
+                  className="w-full pl-10 pr-4 py-2 border border-border rounded-lg bg-background text-text-primary font-mono focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+            </div>
+            <div className="flex-1">
+              <label className="block text-xs text-text-secondary mb-1">Razón Social</label>
+              <input
+                type="text"
+                value={searchRazonSocial}
+                onChange={handleRazonSocialChange}
+                onFocus={handleInputFocus}
+                placeholder="Buscar por nombre..."
+                className="w-full px-4 py-2 border border-border rounded-lg bg-background text-text-primary focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+          </div>
         </div>
       )}
 
@@ -121,7 +176,7 @@ export const ClienteSearch: React.FC<ClienteSearchProps> = ({
         <div className="absolute z-50 w-full mt-1 bg-background border border-border rounded-lg shadow-lg max-h-64 overflow-y-auto">
           {filteredClientes.length === 0 ? (
             <div className="px-4 py-3 text-sm text-text-secondary text-center">
-              {searchTerm ? 'No se encontraron clientes' : 'Escribe para buscar...'}
+              {hasSearchTerms ? 'No se encontraron clientes' : 'Escribe para buscar...'}
             </div>
           ) : (
             <>
