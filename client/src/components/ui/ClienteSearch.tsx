@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, X } from 'lucide-react';
+import { formatCUITInput } from '@/utils/format';
 
 interface Cliente {
   id: number;
@@ -13,19 +14,6 @@ interface ClienteSearchProps {
   onChange: (clienteId: number | undefined) => void;
   placeholder?: string;
   className?: string;
-}
-
-// Función para formatear CUIT con guiones
-function formatCUIT(input: string): string {
-  const numbers = input.replace(/\D/g, '');
-  const limited = numbers.slice(0, 11);
-  if (limited.length <= 2) {
-    return limited;
-  } else if (limited.length <= 10) {
-    return `${limited.slice(0, 2)}-${limited.slice(2)}`;
-  } else {
-    return `${limited.slice(0, 2)}-${limited.slice(2, 10)}-${limited.slice(10)}`;
-  }
 }
 
 export const ClienteSearch: React.FC<ClienteSearchProps> = ({
@@ -95,7 +83,7 @@ export const ClienteSearch: React.FC<ClienteSearchProps> = ({
   };
 
   const handleCuitChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatCUIT(e.target.value);
+    const formatted = formatCUITInput(e.target.value);
     setSearchCuit(formatted);
     setShowDropdown(true);
   };
@@ -103,7 +91,7 @@ export const ClienteSearch: React.FC<ClienteSearchProps> = ({
   const handleCuitPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
     e.preventDefault();
     const pastedText = e.clipboardData.getData('text');
-    const formatted = formatCUIT(pastedText);
+    const formatted = formatCUITInput(pastedText);
     setSearchCuit(formatted);
     setShowDropdown(true);
   };

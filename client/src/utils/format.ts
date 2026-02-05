@@ -42,6 +42,23 @@ export const formatCUIT = (cuit: string): string => {
   return cuit;
 };
 
+/**
+ * Formatea CUIT progresivamente mientras el usuario escribe.
+ * Usado en inputs con máscara (CUITInput, ClienteSearch).
+ */
+export const formatCUITInput = (input: string): string => {
+  const numbers = input.replace(/\D/g, '');
+  const limited = numbers.slice(0, 11);
+
+  if (limited.length <= 2) {
+    return limited;
+  } else if (limited.length <= 10) {
+    return `${limited.slice(0, 2)}-${limited.slice(2)}`;
+  } else {
+    return `${limited.slice(0, 2)}-${limited.slice(2, 10)}-${limited.slice(10)}`;
+  }
+};
+
 export const validateCUIT = (cuit: string): boolean => {
   const cleaned = cuit.replace(/\D/g, '');
   return cleaned.length === 11 && /^(20|23|27|30|33)\d{9}$/.test(cleaned);

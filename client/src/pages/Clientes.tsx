@@ -85,7 +85,7 @@ const Clientes: React.FC = () => {
     queryFn: () => clientesApi.getAll(),
   });
 
-  // Filtrar por CUIT y/o Razón Social (OR: cualquiera que coincida)
+  // Filtrar por CUIT y/o Razón Social (AND: ambos deben coincidir si tienen valor)
   const clientes = allClientes.filter((cliente) => {
     const cuitNormalizado = searchCuit.replace(/-/g, '').toLowerCase();
     const clienteCuitNormalizado = cliente.cuit.replace(/-/g, '').toLowerCase();
@@ -93,11 +93,6 @@ const Clientes: React.FC = () => {
     const matchCuit = !searchCuit || clienteCuitNormalizado.includes(cuitNormalizado);
     const matchRazon = !searchRazonSocial || cliente.razon_social.toLowerCase().includes(searchRazonSocial.toLowerCase());
 
-    // Si ambos tienen valor, deben coincidir ambos (AND)
-    // Si solo uno tiene valor, usa ese
-    if (searchCuit && searchRazonSocial) {
-      return matchCuit && matchRazon;
-    }
     return matchCuit && matchRazon;
   });
 
