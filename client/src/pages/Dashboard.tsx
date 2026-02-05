@@ -9,6 +9,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Table, TableColumn } from '@/components/tables/Table';
 import { dashboardApi, controlesApi, ControlPendiente } from '@/services/supabase';
 import { formatCurrency, formatDate } from '@/utils/format';
+import { parseISO } from 'date-fns';
 import { showToast } from '@/components/ui/Toast';
 
 // Tipo para las tareas/recordatorios
@@ -173,7 +174,7 @@ const Dashboard: React.FC = () => {
         );
       case 'fecha_pago_programada':
         const hoy = new Date();
-        const fechaPago = new Date(row.fecha_pago_programada);
+        const fechaPago = parseISO(row.fecha_pago_programada);
         const diff = Math.ceil((fechaPago.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
         const isProximo = diff <= 3 && diff >= 0;
         const isVencido = diff < 0;
@@ -364,7 +365,7 @@ const Dashboard: React.FC = () => {
               <p className="text-text-secondary">Cargando alertas...</p>
             ) : (
               alertasPagos.map((control) => {
-                const fechaPago = new Date(control.fecha_pago_programada);
+                const fechaPago = parseISO(control.fecha_pago_programada);
                 const hoy = new Date();
                 const diff = Math.ceil((fechaPago.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
                 const isVencido = diff < 0;

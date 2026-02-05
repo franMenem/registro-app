@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { showToast } from '@/components/ui/Toast';
 import {
@@ -610,7 +610,7 @@ const GastosRegistro: React.FC = () => {
                     gastosRegistrales.map((gasto: GastoRegistral) => (
                       <tr key={gasto.id} className="border-b border-border hover:bg-background">
                         <td className="py-3 px-4 text-sm text-text-primary">
-                          {format(new Date(gasto.fecha), 'dd/MM/yyyy')}
+                          {format(parseISO(gasto.fecha), 'dd/MM/yyyy')}
                         </td>
                         <td className="py-3 px-4">
                           <div className="flex flex-col">
@@ -778,7 +778,7 @@ const GastosRegistro: React.FC = () => {
                     resumenEmpleado.adelantos_pendientes.map((adelanto: Adelanto) => (
                       <tr key={adelanto.id} className="border-b border-border hover:bg-background">
                         <td className="py-3 px-4 text-sm text-text-primary">
-                          {format(new Date(adelanto.fecha_adelanto), 'dd/MM/yyyy')}
+                          {format(parseISO(adelanto.fecha_adelanto), 'dd/MM/yyyy')}
                         </td>
                         <td className="py-3 px-4 text-sm font-semibold text-right text-text-primary">
                           {formatCurrency(adelanto.monto)}
@@ -851,11 +851,11 @@ const GastosRegistro: React.FC = () => {
                     resumenEmpleado.adelantos_descontados.map((adelanto: Adelanto) => (
                       <tr key={adelanto.id} className="border-b border-border">
                         <td className="py-3 px-4 text-sm text-text-primary">
-                          {format(new Date(adelanto.fecha_adelanto), 'dd/MM/yyyy')}
+                          {format(parseISO(adelanto.fecha_adelanto), 'dd/MM/yyyy')}
                         </td>
                         <td className="py-3 px-4 text-sm text-success">
                           {adelanto.fecha_descuento
-                            ? format(new Date(adelanto.fecha_descuento), 'dd/MM/yyyy')
+                            ? format(parseISO(adelanto.fecha_descuento), 'dd/MM/yyyy')
                             : '-'}
                         </td>
                         <td className="py-3 px-4 text-sm font-semibold text-right text-text-primary">

@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { showToast } from '@/components/ui/Toast';
 import {
   Plus,
@@ -37,8 +37,8 @@ const getMontoVigente = (vencimientos: Vencimiento[]): number => {
 
   // Buscar el primer vencimiento que no haya vencido aún
   const pendiente = vencimientos
-    .filter((v) => v.estado === 'PENDIENTE' && new Date(v.fecha_vencimiento) >= today)
-    .sort((a, b) => new Date(a.fecha_vencimiento).getTime() - new Date(b.fecha_vencimiento).getTime())[0];
+    .filter((v) => v.estado === 'PENDIENTE' && parseISO(v.fecha_vencimiento) >= today)
+    .sort((a, b) => parseISO(a.fecha_vencimiento).getTime() - parseISO(b.fecha_vencimiento).getTime())[0];
 
   if (pendiente) return pendiente.monto;
 
@@ -406,15 +406,15 @@ const Formularios: React.FC = () => {
     // Encontrar el vencimiento pendiente más antiguo de cada formulario
     const vencimientoPendienteA = a.vencimientos
       .filter((v: Vencimiento) => v.estado === 'PENDIENTE')
-      .sort((v1: Vencimiento, v2: Vencimiento) => new Date(v1.fecha_vencimiento).getTime() - new Date(v2.fecha_vencimiento).getTime())[0];
+      .sort((v1: Vencimiento, v2: Vencimiento) => parseISO(v1.fecha_vencimiento).getTime() - parseISO(v2.fecha_vencimiento).getTime())[0];
 
     const vencimientoPendienteB = b.vencimientos
       .filter((v: Vencimiento) => v.estado === 'PENDIENTE')
-      .sort((v1: Vencimiento, v2: Vencimiento) => new Date(v1.fecha_vencimiento).getTime() - new Date(v2.fecha_vencimiento).getTime())[0];
+      .sort((v1: Vencimiento, v2: Vencimiento) => parseISO(v1.fecha_vencimiento).getTime() - parseISO(v2.fecha_vencimiento).getTime())[0];
 
     // Si no tienen vencimientos pendientes, usar el primer vencimiento
-    const fechaA = vencimientoPendienteA ? new Date(vencimientoPendienteA.fecha_vencimiento) : new Date(a.vencimientos[0].fecha_vencimiento);
-    const fechaB = vencimientoPendienteB ? new Date(vencimientoPendienteB.fecha_vencimiento) : new Date(b.vencimientos[0].fecha_vencimiento);
+    const fechaA = vencimientoPendienteA ? parseISO(vencimientoPendienteA.fecha_vencimiento) : parseISO(a.vencimientos[0].fecha_vencimiento);
+    const fechaB = vencimientoPendienteB ? parseISO(vencimientoPendienteB.fecha_vencimiento) : parseISO(b.vencimientos[0].fecha_vencimiento);
 
     return fechaA.getTime() - fechaB.getTime(); // Más antigua primero
   });
@@ -731,7 +731,7 @@ const Formularios: React.FC = () => {
                           {formulario.numero}
                         </span>
                         <span className="text-xs text-text-muted">
-                          {format(new Date(formulario.fecha_compra), 'dd/MM/yyyy')}
+                          {format(parseISO(formulario.fecha_compra), 'dd/MM/yyyy')}
                         </span>
                       </div>
                     </td>
@@ -767,7 +767,7 @@ const Formularios: React.FC = () => {
                               className={
                                 venc.estado === 'PAGADO'
                                   ? 'text-success font-medium'
-                                  : new Date(venc.fecha_vencimiento) < today
+                                  : parseISO(venc.fecha_vencimiento) < today
                                   ? 'text-text-muted font-medium'
                                   : 'text-text-secondary'
                               }
@@ -775,7 +775,7 @@ const Formularios: React.FC = () => {
                               Venc {venc.numero_vencimiento}:
                             </span>
                             <span className="text-text-primary">
-                              {format(new Date(venc.fecha_vencimiento), 'dd/MM/yy')}
+                              {format(parseISO(venc.fecha_vencimiento), 'dd/MM/yy')}
                             </span>
                             <span className="font-medium text-text-primary">
                               {formatCurrency(venc.monto)}
@@ -783,7 +783,7 @@ const Formularios: React.FC = () => {
                             {venc.estado === 'PAGADO' && (
                               <CheckCircle2 className="h-3 w-3 text-success" />
                             )}
-                            {venc.estado !== 'PAGADO' && new Date(venc.fecha_vencimiento) < today && (
+                            {venc.estado !== 'PAGADO' && parseISO(venc.fecha_vencimiento) < today && (
                               <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-200 text-gray-600">
                                 VENCIDO
                               </span>
@@ -859,7 +859,7 @@ const Formularios: React.FC = () => {
                           {formatCurrency(pago.monto)}
                         </span>
                         <span className="text-sm text-text-secondary">
-                          {format(new Date(pago.fecha), 'dd/MM/yyyy')}
+                          {format(parseISO(pago.fecha), 'dd/MM/yyyy')}
                         </span>
                       </div>
                       {pago.formularios.length > 0 && (

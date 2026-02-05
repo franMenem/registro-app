@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase';
+import { parseISO } from 'date-fns';
 
 // Types
 type TipoMovimiento = 'RENTAS' | 'CAJA';
@@ -231,7 +232,7 @@ export const dashboardApi = {
     // Sort by fecha_pago_programada (earliest first)
     return [...semanalesTransformed, ...quincenalesTransformed].sort(
       (a, b) =>
-        new Date(a.fecha_pago_programada).getTime() - new Date(b.fecha_pago_programada).getTime()
+        parseISO(a.fecha_pago_programada).getTime() - parseISO(b.fecha_pago_programada).getTime()
     );
   },
 
@@ -276,7 +277,7 @@ export const dashboardApi = {
     // Sort by fecha_pago_programada (earliest first)
     return [...semanalesTransformed, ...quincenalesTransformed].sort(
       (a, b) =>
-        new Date(a.fecha_pago_programada).getTime() - new Date(b.fecha_pago_programada).getTime()
+        parseISO(a.fecha_pago_programada).getTime() - parseISO(b.fecha_pago_programada).getTime()
     );
   },
 };
