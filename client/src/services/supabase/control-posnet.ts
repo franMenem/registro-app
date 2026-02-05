@@ -37,120 +37,38 @@ export interface ImportResult {
   registros_procesados: number;
 }
 
-// Interface for movimiento with concepto join (raw from Supabase)
-interface RawMovimiento {
-  id: number;
-  fecha: string;
-  tipo: 'RENTAS' | 'CAJA';
-  monto: number;
-  conceptos: { nombre: string } | null;
-}
-
-// Interface for bank deposit record
-interface DepositoBancario {
-  id: number;
-  fecha: string;
-  monto: number;
-}
-
 export const posnetDiarioApi = {
-  // Get all records for a specific month by aggregating from movimientos table
+  // Get all records for a specific month directly from control_posnet_diario table
   getRegistrosMes: async (mes: number, anio: number): Promise<RegistroPosnet[]> => {
     // Calculate date range for the month
     const fechaInicio = `${anio}-${mes.toString().padStart(2, '0')}-01`;
     const lastDay = new Date(anio, mes, 0).getDate();
     const fechaFin = `${anio}-${mes.toString().padStart(2, '0')}-${lastDay.toString().padStart(2, '0')}`;
 
-    // Get all POSNET movements for the month from movimientos table
-    const { data: movimientos, error: movError } = await supabase
-      .from('movimientos')
-      .select(`
-        id,
-        fecha,
-        tipo,
-        monto,
-        conceptos (nombre)
-      `)
+    // Get all records directly from control_posnet_diario
+    const { data, error } = await supabase
+      .from('control_posnet_diario')
+      .select('*')
       .gte('fecha', fechaInicio)
       .lte('fecha', fechaFin)
       .order('fecha', { ascending: true });
 
-    if (movError) {
-      throw new Error(`Error al obtener movimientos POSNET: ${movError.message}`);
+    if (error) {
+      throw new Error(`Error al obtener registros POSNET: ${error.message}`);
     }
 
-    // Filter only POSNET movements
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const posnetMovimientos: RawMovimiento[] = (movimientos || [])
-      .filter((m: any) => {
-        const nombre = (m.conceptos?.nombre || '').toUpperCase();
-        return nombre === 'POSNET' || nombre === 'POSNET CAJA';
-      })
-      .map((m: any) => ({
-        id: m.id,
-        fecha: m.fecha,
-        tipo: m.tipo,
-        monto: m.monto,
-        conceptos: m.conceptos,
-      }));
-
-    // Get bank deposits from control_posnet_diario (if any exist)
-    const { data: depositos } = await supabase
-      .from('control_posnet_diario')
-      .select('id, fecha, monto_ingresado_banco')
-      .gte('fecha', fechaInicio)
-      .lte('fecha', fechaFin);
-
-    // Create a map of bank deposits by date
-    const depositosMap = new Map<string, DepositoBancario>();
-    (depositos || []).forEach((d: { id: number; fecha: string; monto_ingresado_banco: number }) => {
-      depositosMap.set(d.fecha, { id: d.id, fecha: d.fecha, monto: d.monto_ingresado_banco });
-    });
-
-    // Aggregate movimientos by date
-    const registrosPorFecha = new Map<string, {
-      monto_rentas: number;
-      monto_caja: number;
-    }>();
-
-    for (const mov of posnetMovimientos) {
-      const existing = registrosPorFecha.get(mov.fecha) || { monto_rentas: 0, monto_caja: 0 };
-
-      if (mov.tipo === 'RENTAS') {
-        existing.monto_rentas += Number(mov.monto) || 0;
-      } else if (mov.tipo === 'CAJA') {
-        existing.monto_caja += Number(mov.monto) || 0;
-      }
-
-      registrosPorFecha.set(mov.fecha, existing);
-    }
-
-    // Convert to RegistroPosnet array
-    const registros: RegistroPosnet[] = [];
-    let idCounter = 1;
-
-    registrosPorFecha.forEach((valores, fecha) => {
-      const deposito = depositosMap.get(fecha);
-      const totalPosnet = valores.monto_rentas + valores.monto_caja;
-      const montoIngresado = deposito?.monto || 0;
-
-      registros.push({
-        id: deposito?.id || idCounter++,
-        fecha,
-        monto_rentas: valores.monto_rentas,
-        monto_caja: valores.monto_caja,
-        total_posnet: totalPosnet,
-        monto_ingresado_banco: montoIngresado,
-        diferencia: totalPosnet - montoIngresado,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      });
-    });
-
-    // Sort by fecha ascending
-    registros.sort((a, b) => a.fecha.localeCompare(b.fecha));
-
-    return registros;
+    // Map to RegistroPosnet format
+    return (data || []).map((d) => ({
+      id: d.id,
+      fecha: d.fecha,
+      monto_rentas: Number(d.monto_rentas) || 0,
+      monto_caja: Number(d.monto_caja) || 0,
+      total_posnet: Number(d.total_posnet) || 0,
+      monto_ingresado_banco: Number(d.monto_ingresado_banco) || 0,
+      diferencia: Number(d.diferencia) || 0,
+      created_at: d.created_at || new Date().toISOString(),
+      updated_at: d.updated_at || new Date().toISOString(),
+    }));
   },
 
   // Get monthly summary
