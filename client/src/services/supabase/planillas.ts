@@ -1,7 +1,7 @@
 // Supabase service for Planillas (RENTAS and CAJA daily aggregations)
 
 import { supabase } from '@/lib/supabase';
-import { parseISO } from 'date-fns';
+import { parseDateFromDB } from '@/utils/format';
 
 // Types
 export interface DiaRentas {
@@ -256,7 +256,7 @@ export const planillasApi = {
 
     // Sort by fecha descending
     return Array.from(byFecha.values()).sort(
-      (a, b) => parseISO(b.fecha).getTime() - parseISO(a.fecha).getTime()
+      (a, b) => parseDateFromDB(b.fecha).getTime() - parseDateFromDB(a.fecha).getTime()
     );
   },
 
@@ -299,7 +299,7 @@ export const planillasApi = {
 
     // Sort by fecha descending
     return Array.from(byFecha.values()).sort(
-      (a, b) => parseISO(b.fecha).getTime() - parseISO(a.fecha).getTime()
+      (a, b) => parseDateFromDB(b.fecha).getTime() - parseDateFromDB(a.fecha).getTime()
     );
   },
 

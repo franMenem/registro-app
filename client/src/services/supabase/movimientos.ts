@@ -1,6 +1,6 @@
 import { supabase } from '../../lib/supabase';
 import { cuentasApi } from './cuentas-corrientes';
-import { parseISO } from 'date-fns';
+import { parseDateFromDB } from '../../utils/format';
 
 // Types
 type TipoMovimiento = 'RENTAS' | 'CAJA';
@@ -310,7 +310,7 @@ export const movimientosApi = {
 
     if (insertError) throw new Error(insertError.message);
 
-    const fechaObj = parseISO(movimiento.fecha);
+    const fechaObj = parseDateFromDB(movimiento.fecha);
 
     // Apply control logic based on frequency
     if (concepto.frecuencia_pago === 'SEMANAL') {

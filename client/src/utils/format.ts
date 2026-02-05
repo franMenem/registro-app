@@ -46,3 +46,10 @@ export const validateCUIT = (cuit: string): boolean => {
   const cleaned = cuit.replace(/\D/g, '');
   return cleaned.length === 11 && /^(20|23|27|30|33)\d{9}$/.test(cleaned);
 };
+
+/**
+ * Parsea fechas ISO que vienen de Supabase/DB como strings.
+ * Usa parseISO de date-fns para evitar el bug de timezone donde
+ * new Date("2026-02-05") se interpreta como UTC y muestra el día anterior.
+ */
+export const parseDateFromDB = (dateString: string): Date => parseISO(dateString);

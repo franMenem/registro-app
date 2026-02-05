@@ -1,7 +1,7 @@
 // Supabase service for Formularios and Vencimientos
 
 import { supabase } from '@/lib/supabase';
-import { parseISO } from 'date-fns';
+import { parseDateFromDB } from '@/utils/format';
 
 // Types
 export interface Vencimiento {
@@ -222,8 +222,8 @@ export const formulariosApi = {
 
       // Calcular monto vigente: próximo a vencer, o venc 3 si todos vencieron
       const pendiente = vencs
-        .filter((v) => parseISO(v.fecha_vencimiento) >= today)
-        .sort((a, b) => parseISO(a.fecha_vencimiento).getTime() - parseISO(b.fecha_vencimiento).getTime())[0];
+        .filter((v) => parseDateFromDB(v.fecha_vencimiento) >= today)
+        .sort((a, b) => parseDateFromDB(a.fecha_vencimiento).getTime() - parseDateFromDB(b.fecha_vencimiento).getTime())[0];
 
       if (pendiente) {
         montoPendiente += Number(pendiente.monto);
