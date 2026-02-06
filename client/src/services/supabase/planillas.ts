@@ -3,6 +3,9 @@
 import { supabase } from '@/lib/supabase';
 import { parseDateFromDB } from '@/utils/format';
 
+// CUIT placeholder para movimientos generados desde planillas (no asociados a un cliente)
+const CUIT_PLANILLA = '00000000000';
+
 // Types
 export interface DiaRentas {
   fecha: string;
@@ -216,12 +219,22 @@ const cajaKeyToConcepto: Record<keyof Omit<DiaCaja, 'fecha'>, string> = {
   DEPOSITOS: 'DEPOSITOS CAJA',
 };
 
+// Helper to extract concepto nombre from Supabase joined data
+// PostgREST returns a single object for many-to-one FK, but TS may infer array
+const getConceptoNombre = (conceptos: unknown): string | undefined => {
+  if (Array.isArray(conceptos)) return conceptos[0]?.nombre;
+  if (conceptos && typeof conceptos === 'object' && 'nombre' in conceptos) {
+    return (conceptos as { nombre: string }).nombre;
+  }
+  return undefined;
+};
+
 export const planillasApi = {
   // Get aggregated RENTAS data by date
   getRentas: async (filters: PlanillaFilters = {}): Promise<DiaRentas[]> => {
     let query = supabase
       .from('movimientos')
-      .select('fecha, concepto, monto')
+      .select('fecha, monto, conceptos(nombre)')
       .eq('tipo', 'RENTAS')
       .order('fecha', { ascending: false });
 
@@ -248,7 +261,8 @@ export const planillasApi = {
       }
 
       const dia = byFecha.get(fecha)!;
-      const key = rentasConceptoMap[mov.concepto];
+      const conceptoNombre = getConceptoNombre(mov.conceptos);
+      const key = conceptoNombre ? rentasConceptoMap[conceptoNombre] : undefined;
       if (key && key !== 'fecha') {
         dia[key] = (dia[key] as number) + Number(mov.monto || 0);
       }
@@ -264,7 +278,7 @@ export const planillasApi = {
   getCaja: async (filters: PlanillaFilters = {}): Promise<DiaCaja[]> => {
     let query = supabase
       .from('movimientos')
-      .select('fecha, concepto, monto')
+      .select('fecha, monto, conceptos(nombre)')
       .eq('tipo', 'CAJA')
       .order('fecha', { ascending: false });
 
@@ -291,7 +305,8 @@ export const planillasApi = {
       }
 
       const dia = byFecha.get(fecha)!;
-      const key = cajaConceptoMap[mov.concepto];
+      const conceptoNombre = getConceptoNombre(mov.conceptos);
+      const key = conceptoNombre ? cajaConceptoMap[conceptoNombre] : undefined;
       if (key && key !== 'fecha') {
         dia[key] = (dia[key] as number) + Number(mov.monto || 0);
       }
@@ -310,10 +325,25 @@ export const planillasApi = {
   ): Promise<UpdateResult> => {
     const alertas: string[] = [];
 
-    // Get existing movimientos for this date
+    // Pre-load conceptos for name→id mapping (needed for inserts)
+    const { data: conceptos, error: conceptosError } = await supabase
+      .from('conceptos')
+      .select('id, nombre')
+      .eq('tipo', 'RENTAS');
+
+    if (conceptosError) {
+      throw new Error(`Error al obtener conceptos: ${conceptosError.message}`);
+    }
+
+    const conceptoIdByNombre = new Map<string, number>();
+    for (const c of conceptos || []) {
+      conceptoIdByNombre.set(c.nombre, c.id);
+    }
+
+    // Get existing movimientos for this date (join conceptos for name)
     const { data: existingMovs, error: fetchError } = await supabase
       .from('movimientos')
-      .select('id, concepto, monto')
+      .select('id, monto, conceptos(nombre)')
       .eq('tipo', 'RENTAS')
       .eq('fecha', fecha);
 
@@ -321,57 +351,63 @@ export const planillasApi = {
       throw new Error(`Error al obtener movimientos: ${fetchError.message}`);
     }
 
-    // Create map of existing movimientos by concepto
+    // Create map of existing movimientos by concepto name
     const existingByConcepto = new Map<string, { id: number; monto: number }>();
     for (const mov of existingMovs || []) {
-      existingByConcepto.set(mov.concepto, { id: mov.id, monto: mov.monto });
+      const nombre = getConceptoNombre(mov.conceptos);
+      if (nombre) {
+        existingByConcepto.set(nombre, { id: mov.id, monto: mov.monto });
+      }
     }
 
-    // Process each field
-    const updates: Promise<void>[] = [];
+    // Process each field — collect results instead of mutating shared array
+    const operations: Promise<string | null>[] = [];
 
     for (const [key, concepto] of Object.entries(rentasKeyToConcepto)) {
       const nuevoMonto = valores[key as keyof DiaRentas] as number;
       const existing = existingByConcepto.get(concepto);
 
       if (existing) {
-        // Update existing if different
         if (existing.monto !== nuevoMonto) {
-          updates.push(
+          operations.push(
             (async () => {
               const { error } = await supabase
                 .from('movimientos')
                 .update({ monto: nuevoMonto })
                 .eq('id', existing.id);
               if (error) {
-                throw new Error(
-                  `Error actualizando ${concepto}: ${error.message}`
-                );
+                throw new Error(`Error actualizando ${concepto}: ${error.message}`);
               }
-              alertas.push(`${concepto}: ${existing.monto} → ${nuevoMonto}`);
+              return `${concepto}: ${existing.monto} → ${nuevoMonto}`;
             })()
           );
         }
       } else if (nuevoMonto > 0) {
-        // Insert new if > 0
-        updates.push(
+        const conceptoId = conceptoIdByNombre.get(concepto);
+        if (!conceptoId) {
+          alertas.push(`Concepto "${concepto}" no encontrado en tabla conceptos`);
+          continue;
+        }
+        operations.push(
           (async () => {
             const { error } = await supabase.from('movimientos').insert({
               fecha,
               tipo: 'RENTAS',
-              concepto,
+              cuit: CUIT_PLANILLA,
+              concepto_id: conceptoId,
               monto: nuevoMonto,
             });
             if (error) {
               throw new Error(`Error insertando ${concepto}: ${error.message}`);
             }
-            alertas.push(`${concepto}: nuevo → ${nuevoMonto}`);
+            return `${concepto}: nuevo → ${nuevoMonto}`;
           })()
         );
       }
     }
 
-    await Promise.all(updates);
+    const results = await Promise.all(operations);
+    alertas.push(...results.filter((r): r is string => r !== null));
 
     return {
       message: `Planilla RENTAS actualizada para ${fecha}`,
@@ -383,10 +419,25 @@ export const planillasApi = {
   updateCaja: async (fecha: string, valores: DiaCaja): Promise<UpdateResult> => {
     const alertas: string[] = [];
 
-    // Get existing movimientos for this date
+    // Pre-load conceptos for name→id mapping (needed for inserts)
+    const { data: conceptos, error: conceptosError } = await supabase
+      .from('conceptos')
+      .select('id, nombre')
+      .eq('tipo', 'CAJA');
+
+    if (conceptosError) {
+      throw new Error(`Error al obtener conceptos: ${conceptosError.message}`);
+    }
+
+    const conceptoIdByNombre = new Map<string, number>();
+    for (const c of conceptos || []) {
+      conceptoIdByNombre.set(c.nombre, c.id);
+    }
+
+    // Get existing movimientos for this date (join conceptos for name)
     const { data: existingMovs, error: fetchError } = await supabase
       .from('movimientos')
-      .select('id, concepto, monto')
+      .select('id, monto, conceptos(nombre)')
       .eq('tipo', 'CAJA')
       .eq('fecha', fecha);
 
@@ -394,57 +445,63 @@ export const planillasApi = {
       throw new Error(`Error al obtener movimientos: ${fetchError.message}`);
     }
 
-    // Create map of existing movimientos by concepto
+    // Create map of existing movimientos by concepto name
     const existingByConcepto = new Map<string, { id: number; monto: number }>();
     for (const mov of existingMovs || []) {
-      existingByConcepto.set(mov.concepto, { id: mov.id, monto: mov.monto });
+      const nombre = getConceptoNombre(mov.conceptos);
+      if (nombre) {
+        existingByConcepto.set(nombre, { id: mov.id, monto: mov.monto });
+      }
     }
 
-    // Process each field
-    const updates: Promise<void>[] = [];
+    // Process each field — collect results instead of mutating shared array
+    const operations: Promise<string | null>[] = [];
 
     for (const [key, concepto] of Object.entries(cajaKeyToConcepto)) {
       const nuevoMonto = valores[key as keyof DiaCaja] as number;
       const existing = existingByConcepto.get(concepto);
 
       if (existing) {
-        // Update existing if different
         if (existing.monto !== nuevoMonto) {
-          updates.push(
+          operations.push(
             (async () => {
               const { error } = await supabase
                 .from('movimientos')
                 .update({ monto: nuevoMonto })
                 .eq('id', existing.id);
               if (error) {
-                throw new Error(
-                  `Error actualizando ${concepto}: ${error.message}`
-                );
+                throw new Error(`Error actualizando ${concepto}: ${error.message}`);
               }
-              alertas.push(`${concepto}: ${existing.monto} → ${nuevoMonto}`);
+              return `${concepto}: ${existing.monto} → ${nuevoMonto}`;
             })()
           );
         }
       } else if (nuevoMonto > 0) {
-        // Insert new if > 0
-        updates.push(
+        const conceptoId = conceptoIdByNombre.get(concepto);
+        if (!conceptoId) {
+          alertas.push(`Concepto "${concepto}" no encontrado en tabla conceptos`);
+          continue;
+        }
+        operations.push(
           (async () => {
             const { error } = await supabase.from('movimientos').insert({
               fecha,
               tipo: 'CAJA',
-              concepto,
+              cuit: CUIT_PLANILLA,
+              concepto_id: conceptoId,
               monto: nuevoMonto,
             });
             if (error) {
               throw new Error(`Error insertando ${concepto}: ${error.message}`);
             }
-            alertas.push(`${concepto}: nuevo → ${nuevoMonto}`);
+            return `${concepto}: nuevo → ${nuevoMonto}`;
           })()
         );
       }
     }
 
-    await Promise.all(updates);
+    const results = await Promise.all(operations);
+    alertas.push(...results.filter((r): r is string => r !== null));
 
     return {
       message: `Planilla CAJA actualizada para ${fecha}`,
