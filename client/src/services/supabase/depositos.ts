@@ -34,6 +34,17 @@ export interface DepositoCreate {
   cliente_id?: number;
   cuenta_id?: number;
   fecha_uso?: string;
+  estado?: 'PENDIENTE' | 'LIQUIDADO';
+}
+
+export interface GastoDeposito {
+  id: number;
+  fecha: string;
+  tipo: 'CAJA' | 'RENTAS';
+  numero_deposito: number;
+  monto: number;
+  deposito_id: number | null;
+  created_at: string;
 }
 
 export interface DepositoEstadisticas {
@@ -176,18 +187,20 @@ export const depositosApi = {
    * Crear nuevo depósito
    */
   create: async (deposito: DepositoCreate): Promise<{ message: string; data: Deposito }> => {
+    const esLiquidado = deposito.estado === 'LIQUIDADO';
+
     const { data, error } = await supabase
       .from('depositos')
       .insert({
         monto_original: deposito.monto_original,
-        saldo_actual: deposito.monto_original,
+        saldo_actual: esLiquidado ? 0 : deposito.monto_original,
         fecha_ingreso: deposito.fecha_ingreso,
         titular: deposito.titular,
         observaciones: deposito.observaciones || null,
         cliente_id: deposito.cliente_id || null,
         cuenta_id: deposito.cuenta_id || null,
-        fecha_uso: deposito.fecha_uso || null,
-        estado: 'PENDIENTE',
+        fecha_uso: esLiquidado ? deposito.fecha_ingreso : (deposito.fecha_uso || null),
+        estado: esLiquidado ? 'LIQUIDADO' : 'PENDIENTE',
       })
       .select()
       .single();
@@ -305,26 +318,196 @@ export const depositosApi = {
   },
 
   /**
-   * Asociar depósito a cuenta corriente
+   * Asociar depósito a cuenta corriente (auto-sync: crea INGRESO + recalcula saldos)
    */
   asociarCuenta: async (id: number, cuentaId: number): Promise<{ message: string }> => {
+    const deposito = await depositosApi.getById(id);
+
+    // Crear movimiento INGRESO en la cuenta corriente
+    const { data: movimiento, error: movError } = await supabase
+      .from('movimientos_cc')
+      .insert({
+        cuenta_id: cuentaId,
+        fecha: deposito.fecha_ingreso,
+        tipo_movimiento: 'INGRESO',
+        concepto: `Depósito de ${deposito.titular}`,
+        monto: deposito.monto_original,
+        saldo_resultante: 0, // Se recalcula después
+      })
+      .select()
+      .single();
+
+    if (movError) throw new Error(movError.message);
+
+    // Actualizar depósito con cuenta_id y movimiento_origen_id
     const { error } = await supabase
       .from('depositos')
-      .update({ cuenta_id: cuentaId })
+      .update({
+        cuenta_id: cuentaId,
+        movimiento_origen_id: movimiento.id,
+      })
       .eq('id', id);
 
     if (error) throw new Error(error.message);
+
+    // Recalcular saldos de la cuenta
+    await supabase.rpc('recalcular_saldos_cuenta', { p_cuenta_id: cuentaId });
+
     return { message: 'Depósito asociado a cuenta correctamente' };
   },
 
   /**
-   * Desasociar depósito de cuenta corriente
+   * Desasociar depósito de cuenta corriente (auto-sync: borra INGRESO + recalcula saldos)
    */
   desasociarCuenta: async (id: number): Promise<{ message: string }> => {
-    const { error } = await supabase.from('depositos').update({ cuenta_id: null }).eq('id', id);
+    const deposito = await depositosApi.getById(id);
+    const cuentaId = deposito.cuenta_id;
+
+    // Borrar movimiento INGRESO si existe
+    if (deposito.movimiento_origen_id) {
+      const { error: delError } = await supabase
+        .from('movimientos_cc')
+        .delete()
+        .eq('id', deposito.movimiento_origen_id);
+
+      if (delError) throw new Error(delError.message);
+    }
+
+    // Limpiar cuenta_id y movimiento_origen_id del depósito
+    const { error } = await supabase
+      .from('depositos')
+      .update({ cuenta_id: null, movimiento_origen_id: null })
+      .eq('id', id);
 
     if (error) throw new Error(error.message);
+
+    // Recalcular saldos de la cuenta que se desasoció
+    if (cuentaId) {
+      await supabase.rpc('recalcular_saldos_cuenta', { p_cuenta_id: cuentaId });
+    }
+
     return { message: 'Depósito desasociado de cuenta' };
+  },
+
+  /**
+   * Obtener gastos de depósito sin asignar
+   */
+  getGastosSinAsignar: async (): Promise<GastoDeposito[]> => {
+    const { data, error } = await supabase
+      .from('gastos_deposito')
+      .select('*')
+      .is('deposito_id', null)
+      .order('fecha', { ascending: false });
+
+    if (error) throw new Error(error.message);
+    return data as GastoDeposito[];
+  },
+
+  /**
+   * Asignar gasto de planilla a un depósito (descuenta saldo)
+   */
+  asignarGasto: async (gastoId: number, depositoId: number): Promise<{ message: string }> => {
+    // Obtener gasto
+    const { data: gasto, error: gastoErr } = await supabase
+      .from('gastos_deposito')
+      .select('*')
+      .eq('id', gastoId)
+      .single();
+
+    if (gastoErr) throw new Error(gastoErr.message);
+    if (gasto.deposito_id) throw new Error('Este gasto ya está asignado');
+
+    // Obtener depósito
+    const deposito = await depositosApi.getById(depositoId);
+    if (gasto.monto > deposito.saldo_actual) {
+      throw new Error(`El monto del gasto ($${gasto.monto}) excede el saldo disponible ($${deposito.saldo_actual})`);
+    }
+
+    // Asignar gasto
+    const { error: updGasto } = await supabase
+      .from('gastos_deposito')
+      .update({ deposito_id: depositoId })
+      .eq('id', gastoId);
+
+    if (updGasto) throw new Error(updGasto.message);
+
+    // Actualizar saldo del depósito
+    const nuevoSaldo = deposito.saldo_actual - gasto.monto;
+    const nuevoEstado = nuevoSaldo === 0 ? 'LIQUIDADO' : 'A_FAVOR';
+
+    const { error: updDep } = await supabase
+      .from('depositos')
+      .update({
+        saldo_actual: nuevoSaldo,
+        estado: nuevoEstado,
+        ...(nuevoSaldo === 0 ? { fecha_uso: new Date().toISOString().split('T')[0] } : {}),
+      })
+      .eq('id', depositoId);
+
+    if (updDep) throw new Error(updDep.message);
+
+    return { message: `Gasto asignado. Nuevo saldo: $${nuevoSaldo}` };
+  },
+
+  /**
+   * Desasignar gasto de depósito (revierte saldo)
+   */
+  desasignarGasto: async (gastoId: number): Promise<{ message: string }> => {
+    // Obtener gasto con su deposito_id
+    const { data: gasto, error: gastoErr } = await supabase
+      .from('gastos_deposito')
+      .select('*')
+      .eq('id', gastoId)
+      .single();
+
+    if (gastoErr) throw new Error(gastoErr.message);
+    if (!gasto.deposito_id) throw new Error('Este gasto no está asignado');
+
+    const depositoId = gasto.deposito_id;
+
+    // Obtener depósito actual
+    const deposito = await depositosApi.getById(depositoId);
+
+    // Desasignar gasto
+    const { error: updGasto } = await supabase
+      .from('gastos_deposito')
+      .update({ deposito_id: null })
+      .eq('id', gastoId);
+
+    if (updGasto) throw new Error(updGasto.message);
+
+    // Revertir saldo del depósito
+    const nuevoSaldo = deposito.saldo_actual + gasto.monto;
+    const nuevoEstado = nuevoSaldo >= deposito.monto_original ? 'PENDIENTE' : 'A_FAVOR';
+
+    const { error: updDep } = await supabase
+      .from('depositos')
+      .update({
+        saldo_actual: nuevoSaldo,
+        estado: nuevoEstado,
+        fecha_uso: null,
+      })
+      .eq('id', depositoId);
+
+    if (updDep) throw new Error(updDep.message);
+
+    return { message: `Gasto desasignado. Saldo restaurado: $${nuevoSaldo}` };
+  },
+
+  /**
+   * Obtener depósitos elegibles para asignar gastos (PENDIENTE o A_FAVOR, sin cuenta CC)
+   */
+  getElegiblesParaGastos: async (): Promise<Deposito[]> => {
+    const { data, error } = await supabase
+      .from('depositos')
+      .select('*')
+      .is('cuenta_id', null)
+      .in('estado', ['PENDIENTE', 'A_FAVOR'])
+      .gt('saldo_actual', 0)
+      .order('fecha_ingreso', { ascending: false });
+
+    if (error) throw new Error(error.message);
+    return data as Deposito[];
   },
 
   /**

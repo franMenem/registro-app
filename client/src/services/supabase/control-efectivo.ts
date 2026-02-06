@@ -202,6 +202,30 @@ export const controlEfectivoApi = {
   },
 
   /**
+   * Actualizar movimiento
+   */
+  updateMovimiento: async (
+    id: number,
+    data: {
+      fecha?: string;
+      concepto?: string;
+      monto?: number;
+      cuenta_id?: number | null;
+      observaciones?: string | null;
+    }
+  ): Promise<{ message: string; data: MovimientoEfectivo }> => {
+    const { data: movimiento, error } = await supabase
+      .from('movimientos_efectivo')
+      .update(data)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
+    return { message: 'Movimiento actualizado', data: movimiento as MovimientoEfectivo };
+  },
+
+  /**
    * Eliminar movimiento
    */
   deleteMovimiento: async (id: number): Promise<{ message: string }> => {

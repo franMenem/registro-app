@@ -43,6 +43,9 @@ interface ConceptoValues {
   CARGAS_SOCIALES: number;
   EDESUR: number;
   ACARA: number;
+  SUPERMERCADO: number;
+  SEC: number;
+  OSECAC: number;
   OTROS: number;
   REPO_CAJA_CHICA: number;
   REPO_RENTAS_CHICA: number;
@@ -57,26 +60,73 @@ interface ConceptoValues {
   ALRA: number;
 }
 
+// Evaluar expresiones matemáticas simples (ej: "100+200+300" → 600)
+const evaluateExpression = (expr: string): number | null => {
+  const trimmed = expr.trim();
+  if (!trimmed) return null;
+  // Solo permitir dígitos, operadores, paréntesis, puntos y espacios
+  if (!/^[\d\s+\-*/().]+$/.test(trimmed)) return null;
+  // Solo evaluar si tiene algún operador
+  if (!/[+\-*/]/.test(trimmed)) return null;
+  try {
+    const result = new Function(`return (${trimmed})`)();
+    if (typeof result === 'number' && isFinite(result)) {
+      return Math.round(result * 100) / 100;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+};
+
 // Mover el componente FUERA para evitar re-creación en cada render
 const ConceptoInput: React.FC<{
   label: string;
   value: number;
   onChange: (value: string) => void;
-}> = ({ label, value, onChange }) => (
-  <div className="flex-1">
-    <label className="block text-sm font-medium text-text-primary mb-1.5">{label}</label>
-    <input
-      type="number"
-      step="0.01"
-      value={value || ''}
-      onChange={(e) => onChange(e.target.value)}
-      className={`w-full rounded-lg border border-border bg-card px-4 py-3 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
-        value === 0 ? 'text-text-muted' : 'text-text-primary font-medium'
-      }`}
-      placeholder="$ 0,00"
-    />
-  </div>
-);
+}> = ({ label, value, onChange }) => {
+  const [text, setText] = React.useState('');
+  const [isEditing, setIsEditing] = React.useState(false);
+
+  const displayValue = isEditing ? text : (value ? value.toString() : '');
+
+  return (
+    <div className="flex-1">
+      <label className="block text-sm font-medium text-text-primary mb-1.5">{label}</label>
+      <input
+        type="text"
+        inputMode="decimal"
+        value={displayValue}
+        onFocus={() => {
+          setIsEditing(true);
+          setText(value ? value.toString() : '');
+        }}
+        onChange={(e) => {
+          setText(e.target.value);
+          // Si es un número simple, actualizar en tiempo real
+          const num = parseFloat(e.target.value);
+          if (!isNaN(num) && !/[+\-*/]/.test(e.target.value.slice(1))) {
+            onChange(e.target.value);
+          }
+        }}
+        onBlur={() => {
+          const evaluated = evaluateExpression(text);
+          if (evaluated !== null) {
+            onChange(evaluated.toString());
+            setText(evaluated.toString());
+          } else if (text.trim()) {
+            onChange(text);
+          }
+          setIsEditing(false);
+        }}
+        className={`w-full rounded-lg border border-border bg-card px-4 py-3 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
+          value === 0 ? 'text-text-muted' : 'text-text-primary font-medium'
+        }`}
+        placeholder="$ 0,00"
+      />
+    </div>
+  );
+};
 
 const FormularioCaja: React.FC = () => {
   const navigate = useNavigate();
@@ -115,6 +165,9 @@ const FormularioCaja: React.FC = () => {
     CARGAS_SOCIALES: 0,
     EDESUR: 0,
     ACARA: 0,
+    SUPERMERCADO: 0,
+    SEC: 0,
+    OSECAC: 0,
     OTROS: 0,
     REPO_CAJA_CHICA: 0,
     REPO_RENTAS_CHICA: 0,
@@ -173,6 +226,9 @@ const FormularioCaja: React.FC = () => {
     values.CARGAS_SOCIALES +
     values.EDESUR +
     values.ACARA +
+    values.SUPERMERCADO +
+    values.SEC +
+    values.OSECAC +
     values.OTROS +
     values.REPO_CAJA_CHICA +
     values.REPO_RENTAS_CHICA;
@@ -249,6 +305,9 @@ const FormularioCaja: React.FC = () => {
         CARGAS_SOCIALES: 0,
         EDESUR: 0,
         ACARA: 0,
+        SUPERMERCADO: 0,
+        SEC: 0,
+        OSECAC: 0,
         OTROS: 0,
         REPO_CAJA_CHICA: 0,
         REPO_RENTAS_CHICA: 0,
@@ -609,6 +668,23 @@ const FormularioCaja: React.FC = () => {
                     value={values.ACARA}
                     onChange={(v) => handleInputChange('ACARA', v)}
                   />
+                  <ConceptoInput
+                    label="SUPERMERCADO"
+                    value={values.SUPERMERCADO}
+                    onChange={(v) => handleInputChange('SUPERMERCADO', v)}
+                  />
+                  <ConceptoInput
+                    label="SEC"
+                    value={values.SEC}
+                    onChange={(v) => handleInputChange('SEC', v)}
+                  />
+                  <ConceptoInput
+                    label="OSECAC"
+                    value={values.OSECAC}
+                    onChange={(v) => handleInputChange('OSECAC', v)}
+                  />
+                </div>
+                <div className="grid grid-cols-4 gap-4">
                   <ConceptoInput
                     label="OTROS"
                     value={values.OTROS}

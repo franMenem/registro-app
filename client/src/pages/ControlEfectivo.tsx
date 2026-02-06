@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Wallet, TrendingDown, TrendingUp, Trash2, Edit2, X, DollarSign, Plus } from 'lucide-react';
+import { Wallet, TrendingDown, TrendingUp, Trash2, Edit2, X, DollarSign, Plus, Save } from 'lucide-react';
+import { ActionMenu, ActionMenuItem } from '@/components/ui/ActionMenu';
 import { MetricCard } from '@/components/ui/MetricCard';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -144,6 +145,22 @@ const ControlEfectivo: React.FC = () => {
     },
   });
 
+  // Mutation para actualizar movimiento
+  const updateMovimientoMutation = useMutation({
+    mutationFn: (params: { id: number; data: Parameters<typeof controlEfectivoApi.updateMovimiento>[1] }) =>
+      controlEfectivoApi.updateMovimiento(params.id, params.data),
+    onSuccess: () => {
+      showToast.success('Movimiento actualizado');
+      queryClient.invalidateQueries({ queryKey: ['movimientos-efectivo'] });
+      queryClient.invalidateQueries({ queryKey: ['efectivo-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+      resetForm();
+    },
+    onError: (error: Error) => {
+      showToast.error(error.message || 'Error al actualizar movimiento');
+    },
+  });
+
   const handleUpdateSaldoInicial = () => {
     const valor = parseFloat(nuevoSaldoInicial);
     if (isNaN(valor) || valor < 0) {
@@ -186,19 +203,32 @@ const ControlEfectivo: React.FC = () => {
       conceptoFinal = 'Depósito al banco';
     }
 
-    createMovimientoMutation.mutate({
-      fecha: formData.fecha,
-      tipo: formData.tipo,
-      categoria: formData.tipo === 'GASTO' ? formData.categoria : undefined,
-      concepto: conceptoFinal,
-      concepto_especifico:
-        formData.tipo === 'GASTO' && formData.categoria !== 'GENERICO'
-          ? formData.concepto_especifico
-          : undefined,
-      monto,
-      cuenta_id: formData.cuenta_id ? parseInt(formData.cuenta_id) : undefined,
-      observaciones: formData.observaciones || undefined,
-    });
+    if (editingMovimiento) {
+      updateMovimientoMutation.mutate({
+        id: editingMovimiento.id,
+        data: {
+          fecha: formData.fecha,
+          concepto: conceptoFinal,
+          monto,
+          cuenta_id: formData.cuenta_id ? parseInt(formData.cuenta_id) : null,
+          observaciones: formData.observaciones || null,
+        },
+      });
+    } else {
+      createMovimientoMutation.mutate({
+        fecha: formData.fecha,
+        tipo: formData.tipo,
+        categoria: formData.tipo === 'GASTO' ? formData.categoria : undefined,
+        concepto: conceptoFinal,
+        concepto_especifico:
+          formData.tipo === 'GASTO' && formData.categoria !== 'GENERICO'
+            ? formData.concepto_especifico
+            : undefined,
+        monto,
+        cuenta_id: formData.cuenta_id ? parseInt(formData.cuenta_id) : undefined,
+        observaciones: formData.observaciones || undefined,
+      });
+    }
   };
 
   const resetForm = () => {
@@ -214,6 +244,21 @@ const ControlEfectivo: React.FC = () => {
     });
     setShowForm(false);
     setEditingMovimiento(null);
+  };
+
+  const handleEditar = (movimiento: MovimientoEfectivo) => {
+    setEditingMovimiento(movimiento);
+    setFormData({
+      fecha: movimiento.fecha,
+      tipo: movimiento.tipo === 'DEPOSITO' ? 'DEPOSITO' : 'GASTO',
+      categoria: 'GENERICO',
+      concepto: movimiento.concepto,
+      concepto_especifico: '',
+      monto: movimiento.monto.toString(),
+      cuenta_id: movimiento.cuenta_id?.toString() || '',
+      observaciones: movimiento.observaciones || '',
+    });
+    setShowForm(true);
   };
 
   const handleEliminar = (movimiento: MovimientoEfectivo) => {
@@ -233,7 +278,7 @@ const ControlEfectivo: React.FC = () => {
     { key: 'monto', label: 'Monto', align: 'right', width: '150px' },
     { key: 'cuenta_nombre', label: 'Cuenta Asociada', width: '200px' },
     { key: 'observaciones', label: 'Observaciones', width: '200px' },
-    { key: 'actions', label: 'Acciones', align: 'center', width: '100px' },
+    { key: 'actions', label: '', align: 'center', width: '50px' },
   ];
 
   const renderCell = (column: TableColumn, row: MovimientoEfectivo) => {
@@ -270,22 +315,35 @@ const ControlEfectivo: React.FC = () => {
       case 'cuenta_nombre':
         return row.cuenta_nombre || '-';
       case 'observaciones':
+        if (row.tipo === 'INGRESO') {
+          return (
+            <span>
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-success-light text-success mr-1">Auto</span>
+              {row.observaciones || ''}
+            </span>
+          );
+        }
         return row.observaciones || '-';
       case 'actions':
-        // Solo permitir eliminar GASTO y DEPOSITO (no INGRESO porque vienen automáticos)
-        if (row.tipo === 'INGRESO') {
-          return <span className="text-xs text-text-secondary">Auto</span>;
-        }
+        const actionItems: ActionMenuItem[] = [
+          {
+            label: 'Editar',
+            icon: Edit2,
+            onClick: () => handleEditar(row),
+          },
+          {
+            label: 'Eliminar',
+            icon: Trash2,
+            onClick: () => handleEliminar(row),
+            variant: 'danger',
+            divider: true,
+          },
+        ];
         return (
-          <button
-            onClick={() => handleEliminar(row)}
-            disabled={deleteMovimientoMutation.isPending}
-            className="inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-white bg-error hover:bg-error/90 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Eliminar movimiento"
-          >
-            <Trash2 className="h-4 w-4" />
-            Eliminar
-          </button>
+          <ActionMenu
+            items={actionItems}
+            disabled={deleteMovimientoMutation.isPending || updateMovimientoMutation.isPending}
+          />
         );
       default:
         return row[column.key as keyof MovimientoEfectivo];
@@ -398,8 +456,8 @@ const ControlEfectivo: React.FC = () => {
       {/* Formulario Nuevo Movimiento */}
       {showForm && (
         <Card
-          title="Nuevo Movimiento"
-          subtitle="Registrar gasto o depósito de efectivo"
+          title={editingMovimiento ? 'Editar Movimiento' : 'Nuevo Movimiento'}
+          subtitle={editingMovimiento ? `Editando ${editingMovimiento.concepto}` : 'Registrar gasto o depósito de efectivo'}
           actions={
             <Button variant="outline" icon={X} onClick={resetForm}>
               Cancelar
@@ -574,8 +632,13 @@ const ControlEfectivo: React.FC = () => {
             )}
 
             <div className="flex gap-4">
-              <Button type="submit" variant="primary" disabled={createMovimientoMutation.isPending}>
-                Guardar Movimiento
+              <Button
+                type="submit"
+                variant="primary"
+                icon={editingMovimiento ? Save : undefined}
+                disabled={createMovimientoMutation.isPending || updateMovimientoMutation.isPending}
+              >
+                {editingMovimiento ? 'Guardar Cambios' : 'Guardar Movimiento'}
               </Button>
               <Button type="button" variant="outline" onClick={resetForm}>
                 Cancelar

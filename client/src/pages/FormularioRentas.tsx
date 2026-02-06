@@ -21,7 +21,18 @@ interface ConceptoValues {
   PROVINCIA: number;
   // Conceptos que restan
   POSNET: number;
-  DEPOSITOS: number;
+  DEPOSITO_1: number;
+  DEPOSITO_2: number;
+  DEPOSITO_3: number;
+  DEPOSITO_4: number;
+  DEPOSITO_5: number;
+  DEPOSITO_6: number;
+  DEPOSITO_7: number;
+  DEPOSITO_8: number;
+  DEPOSITO_9: number;
+  DEPOSITO_10: number;
+  DEPOSITO_11: number;
+  DEPOSITO_12: number;
   // Gastos cuentas corrientes
   ICBC: number;
   FORD: number;
@@ -33,26 +44,70 @@ interface ConceptoValues {
   ALRA: number;
 }
 
+// Evaluar expresiones matemáticas simples (ej: "100+200+300" → 600)
+const evaluateExpression = (expr: string): number | null => {
+  const trimmed = expr.trim();
+  if (!trimmed) return null;
+  if (!/^[\d\s+\-*/().]+$/.test(trimmed)) return null;
+  if (!/[+\-*/]/.test(trimmed)) return null;
+  try {
+    const result = new Function(`return (${trimmed})`)();
+    if (typeof result === 'number' && isFinite(result)) {
+      return Math.round(result * 100) / 100;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+};
+
 // Mover el componente FUERA para evitar re-creación en cada render
 const ConceptoInput: React.FC<{
   label: string;
   value: number;
   onChange: (value: string) => void;
-}> = ({ label, value, onChange }) => (
-  <div className="flex-1">
-    <label className="block text-sm font-medium text-text-primary mb-1.5">{label}</label>
-    <input
-      type="number"
-      step="0.01"
-      value={value || ''}
-      onChange={(e) => onChange(e.target.value)}
-      className={`w-full rounded-lg border border-border bg-card px-4 py-3 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
-        value === 0 ? 'text-text-muted' : 'text-text-primary font-medium'
-      }`}
-      placeholder="$ 0,00"
-    />
-  </div>
-);
+}> = ({ label, value, onChange }) => {
+  const [text, setText] = React.useState('');
+  const [isEditing, setIsEditing] = React.useState(false);
+
+  const displayValue = isEditing ? text : (value ? value.toString() : '');
+
+  return (
+    <div className="flex-1">
+      <label className="block text-sm font-medium text-text-primary mb-1.5">{label}</label>
+      <input
+        type="text"
+        inputMode="decimal"
+        value={displayValue}
+        onFocus={() => {
+          setIsEditing(true);
+          setText(value ? value.toString() : '');
+        }}
+        onChange={(e) => {
+          setText(e.target.value);
+          const num = parseFloat(e.target.value);
+          if (!isNaN(num) && !/[+\-*/]/.test(e.target.value.slice(1))) {
+            onChange(e.target.value);
+          }
+        }}
+        onBlur={() => {
+          const evaluated = evaluateExpression(text);
+          if (evaluated !== null) {
+            onChange(evaluated.toString());
+            setText(evaluated.toString());
+          } else if (text.trim()) {
+            onChange(text);
+          }
+          setIsEditing(false);
+        }}
+        className={`w-full rounded-lg border border-border bg-card px-4 py-3 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
+          value === 0 ? 'text-text-muted' : 'text-text-primary font-medium'
+        }`}
+        placeholder="$ 0,00"
+      />
+    </div>
+  );
+};
 
 const FormularioRentas: React.FC = () => {
   const navigate = useNavigate();
@@ -61,7 +116,7 @@ const FormularioRentas: React.FC = () => {
 
   const [fecha, setFecha] = useState<string>(format(today, 'yyyy-MM-dd'));
 
-  const [values, setValues] = useState<ConceptoValues>({
+  const initialValues: ConceptoValues = {
     GIT: 0,
     SUAT_ALTA: 0,
     SUAT_PATENTES: 0,
@@ -71,7 +126,18 @@ const FormularioRentas: React.FC = () => {
     SUGIT: 0,
     PROVINCIA: 0,
     POSNET: 0,
-    DEPOSITOS: 0,
+    DEPOSITO_1: 0,
+    DEPOSITO_2: 0,
+    DEPOSITO_3: 0,
+    DEPOSITO_4: 0,
+    DEPOSITO_5: 0,
+    DEPOSITO_6: 0,
+    DEPOSITO_7: 0,
+    DEPOSITO_8: 0,
+    DEPOSITO_9: 0,
+    DEPOSITO_10: 0,
+    DEPOSITO_11: 0,
+    DEPOSITO_12: 0,
     ICBC: 0,
     FORD: 0,
     SICARDI: 0,
@@ -80,7 +146,9 @@ const FormularioRentas: React.FC = () => {
     CNH: 0,
     GESTORIA_FORD: 0,
     ALRA: 0,
-  });
+  };
+
+  const [values, setValues] = useState<ConceptoValues>(initialValues);
 
   const [entregado, setEntregado] = useState<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -104,7 +172,12 @@ const FormularioRentas: React.FC = () => {
     values.SUGIT +
     values.PROVINCIA;
 
-  const totalRestan = values.POSNET + values.DEPOSITOS;
+  const totalDepositos = values.DEPOSITO_1 + values.DEPOSITO_2 + values.DEPOSITO_3 +
+    values.DEPOSITO_4 + values.DEPOSITO_5 + values.DEPOSITO_6 +
+    values.DEPOSITO_7 + values.DEPOSITO_8 + values.DEPOSITO_9 +
+    values.DEPOSITO_10 + values.DEPOSITO_11 + values.DEPOSITO_12;
+
+  const totalRestan = values.POSNET + totalDepositos;
 
   const totalGastos =
     values.ICBC +
@@ -148,26 +221,7 @@ const FormularioRentas: React.FC = () => {
       }
 
       // Limpiar formulario
-      setValues({
-        GIT: 0,
-        SUAT_ALTA: 0,
-        SUAT_PATENTES: 0,
-        SUAT_INFRACCIONES: 0,
-        CONSULTA: 0,
-        SUCERP: 0,
-        SUGIT: 0,
-        PROVINCIA: 0,
-        POSNET: 0,
-        DEPOSITOS: 0,
-        ICBC: 0,
-        FORD: 0,
-        SICARDI: 0,
-        PATAGONIA: 0,
-        IVECO: 0,
-        CNH: 0,
-        GESTORIA_FORD: 0,
-        ALRA: 0,
-      });
+      setValues(initialValues);
       setEntregado(0);
 
       // Invalidar queries
@@ -381,17 +435,33 @@ const FormularioRentas: React.FC = () => {
               <h3 className="text-xs font-semibold text-error uppercase tracking-wide mb-4">
                 CONCEPTOS QUE RESTAN
               </h3>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 <ConceptoInput
                   label="POSNET"
                   value={values.POSNET}
                   onChange={(v) => handleInputChange('POSNET', v)}
                 />
-                <ConceptoInput
-                  label="DEPOSITOS"
-                  value={values.DEPOSITOS}
-                  onChange={(v) => handleInputChange('DEPOSITOS', v)}
-                />
+              </div>
+            </div>
+
+            {/* DEPOSITOS */}
+            <div className="bg-error-light rounded-lg p-5 mt-5">
+              <h3 className="text-xs font-semibold text-error uppercase tracking-wide mb-4">
+                DEPOSITOS {totalDepositos > 0 && (
+                  <span className="text-sm font-normal ml-2">
+                    (Total: ${totalDepositos.toLocaleString('es-AR', { minimumFractionDigits: 2 })})
+                  </span>
+                )}
+              </h3>
+              <div className="grid grid-cols-4 gap-4">
+                {([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const).map((n) => (
+                  <ConceptoInput
+                    key={n}
+                    label={`DEP ${n}`}
+                    value={values[`DEPOSITO_${n}` as keyof ConceptoValues]}
+                    onChange={(v) => handleInputChange(`DEPOSITO_${n}` as keyof ConceptoValues, v)}
+                  />
+                ))}
               </div>
             </div>
           </div>
