@@ -184,6 +184,20 @@ export const depositosApi = {
   },
 
   /**
+   * Verificar si existen depósitos con misma fecha y monto
+   */
+  checkDuplicados: async (fecha: string, monto: number): Promise<number> => {
+    const { count, error } = await supabase
+      .from('depositos')
+      .select('*', { count: 'exact', head: true })
+      .eq('fecha_ingreso', fecha)
+      .eq('monto_original', monto);
+
+    if (error) throw new Error(error.message);
+    return count ?? 0;
+  },
+
+  /**
    * Crear nuevo depósito
    */
   create: async (deposito: DepositoCreate): Promise<{ message: string; data: Deposito }> => {

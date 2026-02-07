@@ -90,6 +90,12 @@ const Depositos: React.FC = () => {
     clienteId: number | null;
   }>({ isOpen: false, depositoId: null, cuentaId: null, clienteId: null });
 
+  const [duplicadoDialog, setDuplicadoDialog] = useState<{
+    isOpen: boolean;
+    cantidad: number;
+    pendingData: DepositoCreate | null;
+  }>({ isOpen: false, cantidad: 0, pendingData: null });
+
   // Fetch depósitos
   const { data: depositosData, isLoading, error: depositosError } = useQuery({
     queryKey: ['depositos', filtroEstado],
@@ -490,6 +496,27 @@ const Depositos: React.FC = () => {
     setEditingDeposito(null);
   };
 
+  // Verificar duplicados antes de crear
+  const crearConVerificacion = async (data: DepositoCreate) => {
+    try {
+      const cantidad = await depositosApi.checkDuplicados(data.fecha_ingreso, data.monto_original);
+      if (cantidad > 0) {
+        setDuplicadoDialog({ isOpen: true, cantidad, pendingData: data });
+        return;
+      }
+    } catch {
+      // Si falla la verificación, crear igual
+    }
+    createMutation.mutate(data);
+  };
+
+  const confirmarCrearDuplicado = () => {
+    if (duplicadoDialog.pendingData) {
+      createMutation.mutate(duplicadoDialog.pendingData);
+    }
+    setDuplicadoDialog({ isOpen: false, cantidad: 0, pendingData: null });
+  };
+
   // Inline form submit
   const handleInlineSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -499,7 +526,7 @@ const Depositos: React.FC = () => {
       return;
     }
 
-    createMutation.mutate({
+    crearConVerificacion({
       monto_original: monto,
       fecha_ingreso: inlineFecha,
       titular: inlineTitular || 'Sin asignar',
@@ -545,7 +572,7 @@ const Depositos: React.FC = () => {
         return;
       }
 
-      createMutation.mutate({
+      crearConVerificacion({
         monto_original: formData.monto_original,
         fecha_ingreso: formData.fecha_ingreso,
         titular: formData.titular,
@@ -1106,6 +1133,12 @@ const Depositos: React.FC = () => {
                       clientes={clientes}
                       value={formData.cliente_id}
                       onChange={(clienteId) => setFormData({ ...formData, cliente_id: clienteId })}
+                      onCreateCliente={async (data) => {
+                        const { data: newCliente } = await clientesApi.create(data);
+                        queryClient.invalidateQueries({ queryKey: ['clientes'] });
+                        showToast.success(`Cliente "${newCliente.razon_social}" creado`);
+                        return newCliente;
+                      }}
                     />
                   </div>
                   <div>
@@ -1226,6 +1259,18 @@ const Depositos: React.FC = () => {
         isLoading={deleteMutation.isPending}
       />
 
+      {/* Confirm Duplicate Dialog */}
+      <ConfirmDialog
+        isOpen={duplicadoDialog.isOpen}
+        onClose={() => setDuplicadoDialog({ isOpen: false, cantidad: 0, pendingData: null })}
+        onConfirm={confirmarCrearDuplicado}
+        title="Posible depósito duplicado"
+        message={`Ya existe${duplicadoDialog.cantidad === 1 ? '' : 'n'} ${duplicadoDialog.cantidad} depósito${duplicadoDialog.cantidad === 1 ? '' : 's'} con la misma fecha y monto. ¿Desea crear este depósito de todas formas?`}
+        confirmText="Crear igual"
+        cancelText="Cancelar"
+        variant="warning"
+      />
+
       {/* Liquidar Prompt Dialog */}
       <PromptDialog
         isOpen={liquidarDialog.isOpen}
@@ -1304,6 +1349,12 @@ const Depositos: React.FC = () => {
                       cuentaId: clienteId ? null : asociarCuentaDialog.cuentaId,
                     })
                   }
+                  onCreateCliente={async (data) => {
+                    const { data: newCliente } = await clientesApi.create(data);
+                    queryClient.invalidateQueries({ queryKey: ['clientes'] });
+                    showToast.success(`Cliente "${newCliente.razon_social}" creado`);
+                    return newCliente;
+                  }}
                 />
               </div>
             </div>

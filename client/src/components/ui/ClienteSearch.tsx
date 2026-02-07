@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, X } from 'lucide-react';
+import { Search, X, UserPlus, Loader2 } from 'lucide-react';
 import { formatCUITInput } from '@/utils/format';
 
 interface Cliente {
@@ -12,6 +12,7 @@ interface ClienteSearchProps {
   clientes: Cliente[];
   value: number | undefined;
   onChange: (clienteId: number | undefined) => void;
+  onCreateCliente?: (data: { cuit: string; razon_social: string }) => Promise<Cliente>;
   placeholder?: string;
   className?: string;
 }
@@ -20,12 +21,17 @@ export const ClienteSearch: React.FC<ClienteSearchProps> = ({
   clientes,
   value,
   onChange,
+  onCreateCliente,
   className = '',
 }) => {
   const [searchCuit, setSearchCuit] = useState('');
   const [searchRazonSocial, setSearchRazonSocial] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
   const [selectedCliente, setSelectedCliente] = useState<Cliente | null>(null);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [createCuit, setCreateCuit] = useState('');
+  const [createRazonSocial, setCreateRazonSocial] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   // Cuando cambia el value desde afuera, actualizar el cliente seleccionado
@@ -105,6 +111,34 @@ export const ClienteSearch: React.FC<ClienteSearchProps> = ({
     setShowDropdown(true);
   };
 
+  const handleOpenCreateForm = () => {
+    setCreateCuit(searchCuit);
+    setCreateRazonSocial(searchRazonSocial);
+    setShowCreateForm(true);
+  };
+
+  const handleCancelCreate = () => {
+    setShowCreateForm(false);
+    setCreateCuit('');
+    setCreateRazonSocial('');
+  };
+
+  const handleSubmitCreate = async () => {
+    if (!onCreateCliente || !createCuit || !createRazonSocial) return;
+    setIsCreating(true);
+    try {
+      const newCliente = await onCreateCliente({ cuit: createCuit, razon_social: createRazonSocial });
+      handleSelectCliente(newCliente);
+      setShowCreateForm(false);
+      setCreateCuit('');
+      setCreateRazonSocial('');
+    } catch {
+      // error handling is done by the parent via toast
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   return (
     <div ref={wrapperRef} className={`relative ${className}`}>
       {selectedCliente ? (
@@ -162,35 +196,95 @@ export const ClienteSearch: React.FC<ClienteSearchProps> = ({
       {/* Dropdown con resultados */}
       {showDropdown && !selectedCliente && (
         <div className="absolute z-50 w-full mt-1 bg-background border border-border rounded-lg shadow-lg max-h-64 overflow-y-auto">
-          {filteredClientes.length === 0 ? (
-            <div className="px-4 py-3 text-sm text-text-secondary text-center">
-              {hasSearchTerms ? 'No se encontraron clientes' : 'Escribe para buscar...'}
+          {showCreateForm ? (
+            <div className="p-3 space-y-2">
+              <p className="text-xs font-medium text-text-secondary uppercase tracking-wide">Nuevo cliente</p>
+              <div>
+                <label className="block text-xs text-text-secondary mb-1">CUIT *</label>
+                <input
+                  type="text"
+                  value={createCuit}
+                  onChange={(e) => setCreateCuit(formatCUITInput(e.target.value))}
+                  placeholder="20-12345678-9"
+                  maxLength={13}
+                  className="w-full px-3 py-1.5 border border-border rounded-lg bg-background text-text-primary font-mono text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-text-secondary mb-1">Razón Social *</label>
+                <input
+                  type="text"
+                  value={createRazonSocial}
+                  onChange={(e) => setCreateRazonSocial(e.target.value)}
+                  placeholder="Nombre del cliente"
+                  className="w-full px-3 py-1.5 border border-border rounded-lg bg-background text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={handleCancelCreate}
+                  disabled={isCreating}
+                  className="flex-1 px-3 py-1.5 text-sm border border-border rounded-lg hover:bg-background-secondary transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSubmitCreate}
+                  disabled={isCreating || !createCuit || !createRazonSocial}
+                  className="flex-1 px-3 py-1.5 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-1"
+                >
+                  {isCreating ? <Loader2 className="h-3 w-3 animate-spin" /> : <UserPlus className="h-3 w-3" />}
+                  {isCreating ? 'Creando...' : 'Crear'}
+                </button>
+              </div>
             </div>
           ) : (
             <>
-              {/* Opción "Ninguno" */}
-              <button
-                type="button"
-                onClick={handleClearCliente}
-                className="w-full px-4 py-2 text-left text-sm text-text-secondary hover:bg-background-secondary border-b border-border"
-              >
-                Ninguno
-              </button>
+              {filteredClientes.length === 0 ? (
+                <div className="px-4 py-3 text-sm text-text-secondary text-center">
+                  {hasSearchTerms ? 'No se encontraron clientes' : 'Escribe para buscar...'}
+                </div>
+              ) : (
+                <>
+                  {/* Opción "Ninguno" */}
+                  <button
+                    type="button"
+                    onClick={handleClearCliente}
+                    className="w-full px-4 py-2 text-left text-sm text-text-secondary hover:bg-background-secondary border-b border-border"
+                  >
+                    Ninguno
+                  </button>
 
-              {/* Lista de clientes */}
-              {filteredClientes.map((cliente) => (
+                  {/* Lista de clientes */}
+                  {filteredClientes.map((cliente) => (
+                    <button
+                      key={cliente.id}
+                      type="button"
+                      onClick={() => handleSelectCliente(cliente)}
+                      className="w-full px-4 py-2 text-left hover:bg-background-secondary transition-colors border-b border-border/50 last:border-b-0"
+                    >
+                      <p className="text-sm font-medium text-text-primary">
+                        {cliente.razon_social}
+                      </p>
+                      <p className="text-xs text-text-secondary font-mono">{cliente.cuit}</p>
+                    </button>
+                  ))}
+                </>
+              )}
+
+              {/* Botón crear cliente */}
+              {onCreateCliente && (
                 <button
-                  key={cliente.id}
                   type="button"
-                  onClick={() => handleSelectCliente(cliente)}
-                  className="w-full px-4 py-2 text-left hover:bg-background-secondary transition-colors border-b border-border/50 last:border-b-0"
+                  onClick={handleOpenCreateForm}
+                  className="w-full px-4 py-2 text-left text-sm text-primary hover:bg-primary/10 transition-colors border-t border-border flex items-center gap-2"
                 >
-                  <p className="text-sm font-medium text-text-primary">
-                    {cliente.razon_social}
-                  </p>
-                  <p className="text-xs text-text-secondary font-mono">{cliente.cuit}</p>
+                  <UserPlus className="h-4 w-4" />
+                  Crear cliente nuevo
                 </button>
-              ))}
+              )}
             </>
           )}
         </div>
