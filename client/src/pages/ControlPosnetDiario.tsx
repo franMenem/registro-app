@@ -3,8 +3,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { showToast } from '@/components/ui/Toast';
-import { Calendar, DollarSign, AlertCircle, CheckCircle2, TrendingUp, Upload } from 'lucide-react';
+import { Calendar, DollarSign, AlertCircle, CheckCircle2, TrendingUp, Upload, Trash2 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import {
   posnetDiarioApi,
   type RegistroPosnet,
@@ -64,6 +65,27 @@ const ControlPosnetDiario: React.FC = () => {
     },
     onError: (error: Error) => {
       showToast.error(`Error al importar: ${error.message}`);
+    },
+  });
+
+  // Estado para dialog de eliminación
+  const [deleteDialog, setDeleteDialog] = useState<{
+    isOpen: boolean;
+    registroId: number | null;
+    fecha: string;
+  }>({ isOpen: false, registroId: null, fecha: '' });
+
+  // Mutation para eliminar registro
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => posnetDiarioApi.deleteRegistro(id),
+    onSuccess: () => {
+      showToast.success('Registro eliminado');
+      setDeleteDialog({ isOpen: false, registroId: null, fecha: '' });
+      refetchRegistros();
+      queryClient.invalidateQueries({ queryKey: ['posnet-diario-resumen'] });
+    },
+    onError: (error: Error) => {
+      showToast.error(error.message);
     },
   });
 
@@ -357,6 +379,11 @@ const ControlPosnetDiario: React.FC = () => {
                 <th className="text-right py-3 px-4 text-sm font-semibold text-text-secondary">
                   Diferencia
                 </th>
+                <th className="text-right py-3 px-4 text-sm font-semibold text-text-secondary">
+                  % Dif
+                </th>
+                <th className="text-center py-3 px-4 text-sm font-semibold text-text-secondary w-12">
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -424,6 +451,27 @@ const ControlPosnetDiario: React.FC = () => {
                         '-'
                       )}
                     </td>
+                    <td className="py-3 px-4 text-sm text-right">
+                      {tieneMovimientos && registro.total_posnet > 0 ? (
+                        <span className={`font-mono text-xs ${getDiferenciaColor(registro.diferencia)}`}>
+                          {((registro.diferencia / registro.total_posnet) * 100).toFixed(1)}%
+                        </span>
+                      ) : (
+                        '-'
+                      )}
+                    </td>
+                    <td className="py-3 px-4 text-center">
+                      {registro.id > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setDeleteDialog({ isOpen: true, registroId: registro.id, fecha: registro.fecha })}
+                          className="p-1 text-text-muted hover:text-error rounded hover:bg-error/10 transition-colors"
+                          title="Eliminar registro"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 );
               })}
@@ -449,6 +497,19 @@ const ControlPosnetDiario: React.FC = () => {
           </div>
         </div>
       </Card>
+
+      {/* Confirm Delete Dialog */}
+      <ConfirmDialog
+        isOpen={deleteDialog.isOpen}
+        onClose={() => setDeleteDialog({ isOpen: false, registroId: null, fecha: '' })}
+        onConfirm={() => deleteDialog.registroId && deleteMutation.mutate(deleteDialog.registroId)}
+        title="Eliminar registro POSNET"
+        message={`¿Eliminar el registro del ${deleteDialog.fecha ? format(new Date(deleteDialog.fecha + 'T00:00:00'), 'EEEE dd/MM/yyyy', { locale: es }) : ''}?\n\nEsta acción no se puede deshacer.`}
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+        variant="danger"
+        isLoading={deleteMutation.isPending}
+      />
     </div>
   );
 };

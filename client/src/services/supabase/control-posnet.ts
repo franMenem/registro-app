@@ -170,6 +170,20 @@ export const posnetDiarioApi = {
     return { message: 'Monto actualizado correctamente' };
   },
 
+  // Delete a record from control_posnet_diario
+  deleteRegistro: async (id: number): Promise<{ message: string }> => {
+    const { error } = await supabase
+      .from('control_posnet_diario')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      throw new Error(`Error al eliminar registro: ${error.message}`);
+    }
+
+    return { message: 'Registro eliminado correctamente' };
+  },
+
   // Import records from CSV
   importarCSV: async (contenido: string): Promise<ImportResult> => {
     const lines = contenido.trim().split('\n');
