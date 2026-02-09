@@ -18,7 +18,7 @@ import { Card } from '@/components/ui/Card';
 import { Modal } from '@/components/ui/Modal';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Pagination } from '@/components/ui/Pagination';
-import { gastosPersonalesApi, GastoPersonal } from '@/services/supabase/gastos-personales';
+import { gastosPersonalesApi, GastoPersonal, GastoPersonalCreate } from '@/services/supabase/gastos-personales';
 
 // 6 conceptos de gastos personales
 const CONCEPTOS_GP = ['Gaspar', 'Nacion', 'Efectivo', 'Patagonia', 'Credicoop', 'TERE'] as const;
@@ -32,7 +32,13 @@ const GastosPersonales: React.FC = () => {
   const [anioActual, setAnioActual] = useState(today.getFullYear());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Modal states
+  // Inline form state
+  const [inlineFecha, setInlineFecha] = useState(format(today, 'yyyy-MM-dd'));
+  const [inlineConcepto, setInlineConcepto] = useState<ConceptoGP>('Gaspar');
+  const [inlineMonto, setInlineMonto] = useState('');
+  const [inlineObs, setInlineObs] = useState('');
+
+  // Modal states (solo para editar)
   const [modalGasto, setModalGasto] = useState<{
     isOpen: boolean;
     gasto: GastoPersonal | null;
@@ -43,7 +49,7 @@ const GastosPersonales: React.FC = () => {
     id: number | null;
   }>({ isOpen: false, id: null });
 
-  // Form states
+  // Form states (solo para editar en modal)
   const [formGasto, setFormGasto] = useState<{
     fecha: string;
     concepto: ConceptoGP;
@@ -83,8 +89,9 @@ const GastosPersonales: React.FC = () => {
     mutationFn: gastosPersonalesApi.create,
     onSuccess: (response) => {
       showToast.success(response.message);
-      setModalGasto({ isOpen: false, gasto: null });
-      resetFormGasto();
+      // Reset inline form (mantener fecha)
+      setInlineMonto('');
+      setInlineObs('');
       refetchGastos();
       queryClient.invalidateQueries({ queryKey: ['gastos-personales-resumen'] });
       queryClient.invalidateQueries({ queryKey: ['gastos-personales-pendientes'] });
@@ -176,9 +183,20 @@ const GastosPersonales: React.FC = () => {
     });
   };
 
-  const handleOpenNuevoGasto = () => {
-    resetFormGasto();
-    setModalGasto({ isOpen: true, gasto: null });
+  const handleInlineSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const monto = parseFloat(inlineMonto);
+    if (!monto || monto <= 0) {
+      showToast.error('El monto debe ser mayor a 0');
+      return;
+    }
+    createGastoMutation.mutate({
+      fecha: inlineFecha,
+      concepto: inlineConcepto,
+      monto,
+      observaciones: inlineObs || undefined,
+      estado: 'Pagado',
+    });
   };
 
   const handleEditarGasto = (gasto: GastoPersonal) => {
@@ -199,14 +217,10 @@ const GastosPersonales: React.FC = () => {
     }
 
     if (modalGasto.gasto) {
-      // Editar
       updateGastoMutation.mutate({
         id: modalGasto.gasto.id,
         datos: formGasto,
       });
-    } else {
-      // Crear
-      createGastoMutation.mutate(formGasto);
     }
   };
 
@@ -261,11 +275,6 @@ const GastosPersonales: React.FC = () => {
             onChange={handleArchivoSeleccionado}
             className="hidden"
           />
-
-          <Button onClick={handleOpenNuevoGasto} className="flex items-center gap-2">
-            <Plus className="h-5 w-5" />
-            Nuevo Gasto
-          </Button>
         </div>
       </div>
 
@@ -390,6 +399,64 @@ const GastosPersonales: React.FC = () => {
         </Card>
       )}
 
+      {/* Inline Form - Agregar Gasto */}
+      <Card>
+        <form onSubmit={handleInlineSubmit} className="p-4">
+          <div className="flex items-end gap-3">
+            <div>
+              <label className="block text-xs font-medium text-text-secondary mb-1">Fecha</label>
+              <input
+                type="date"
+                value={inlineFecha}
+                onChange={(e) => setInlineFecha(e.target.value)}
+                className="w-36 px-3 py-2 bg-background border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-text-secondary mb-1">Concepto</label>
+              <select
+                value={inlineConcepto}
+                onChange={(e) => setInlineConcepto(e.target.value as ConceptoGP)}
+                className="w-36 px-3 py-2 bg-background border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                {CONCEPTOS_GP.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-text-secondary mb-1">Monto</label>
+              <input
+                type="number"
+                step="0.01"
+                value={inlineMonto}
+                onChange={(e) => setInlineMonto(e.target.value)}
+                placeholder="0.00"
+                className="w-32 px-3 py-2 bg-background border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="block text-xs font-medium text-text-secondary mb-1">Observaciones</label>
+              <input
+                type="text"
+                value={inlineObs}
+                onChange={(e) => setInlineObs(e.target.value)}
+                placeholder="Opcional..."
+                className="w-full px-3 py-2 bg-background border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+            <Button
+              type="submit"
+              disabled={createGastoMutation.isPending}
+              className="flex items-center gap-2 shrink-0"
+            >
+              <Plus className="h-4 w-4" />
+              {createGastoMutation.isPending ? 'Agregando...' : 'Agregar'}
+            </Button>
+          </div>
+        </form>
+      </Card>
+
       {/* Tabla de Gastos */}
       <Card>
         <div className="overflow-x-auto">
@@ -488,14 +555,14 @@ const GastosPersonales: React.FC = () => {
         )}
       </Card>
 
-      {/* Modal Crear/Editar Gasto */}
+      {/* Modal Editar Gasto */}
       <Modal
         isOpen={modalGasto.isOpen}
         onClose={() => {
           setModalGasto({ isOpen: false, gasto: null });
           resetFormGasto();
         }}
-        title={modalGasto.gasto ? 'Editar Gasto Personal' : 'Nuevo Gasto Personal'}
+        title="Editar Gasto Personal"
       >
         <div className="space-y-4">
           <div>
@@ -569,7 +636,7 @@ const GastosPersonales: React.FC = () => {
               Cancelar
             </Button>
             <Button onClick={handleGuardarGasto}>
-              {modalGasto.gasto ? 'Guardar Cambios' : 'Crear Gasto'}
+              Guardar Cambios
             </Button>
           </div>
         </div>
