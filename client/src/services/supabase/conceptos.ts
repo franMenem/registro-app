@@ -8,6 +8,7 @@ export interface Concepto {
   id: number;
   nombre: string;
   tipo: TipoConcepto;
+  column_key: string;
   frecuencia_pago: FrecuenciaPago | null;
   descripcion: string | null;
 }

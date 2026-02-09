@@ -51,84 +51,9 @@ interface RawMovimientoWithConcepto {
   conceptos: { nombre: string; tipo: TipoMovimiento } | null;
 }
 
-// Values interfaces for batch operations
-export interface RentasDiarioValues {
-  GIT: number;
-  SUAT_ALTA: number;
-  SUAT_PATENTES: number;
-  SUAT_INFRACCIONES: number;
-  CONSULTA: number;
-  SUCERP: number;
-  SUGIT: number;
-  PROVINCIA: number;
-  POSNET: number;
-  DEPOSITO_1: number;
-  DEPOSITO_2: number;
-  DEPOSITO_3: number;
-  DEPOSITO_4: number;
-  DEPOSITO_5: number;
-  DEPOSITO_6: number;
-  DEPOSITO_7: number;
-  DEPOSITO_8: number;
-  DEPOSITO_9: number;
-  DEPOSITO_10: number;
-  DEPOSITO_11: number;
-  DEPOSITO_12: number;
-  ICBC: number;
-  FORD: number;
-  SICARDI: number;
-  PATAGONIA: number;
-  IVECO: number;
-  CNH: number;
-  GESTORIA_FORD: number;
-  ALRA: number;
-}
-
-export interface CajaDiarioValues {
-  ARANCEL: number;
-  SUAT_SELLADO: number;
-  SUCERP_SELLADO: number;
-  CONSULTAS: number;
-  FORMULARIOS: number;
-  POSNET: number;
-  VEP: number;
-  EPAGOS: number;
-  DEPOSITO_1: number;
-  DEPOSITO_2: number;
-  DEPOSITO_3: number;
-  DEPOSITO_4: number;
-  DEPOSITO_5: number;
-  DEPOSITO_6: number;
-  DEPOSITO_7: number;
-  DEPOSITO_8: number;
-  DEPOSITO_9: number;
-  DEPOSITO_10: number;
-  DEPOSITO_11: number;
-  DEPOSITO_12: number;
-  LIBRERIA: number;
-  MARIA: number;
-  TERE: number;
-  DAMI: number;
-  MUMI: number;
-  AGUA: number;
-  CARGAS_SOCIALES: number;
-  EDESUR: number;
-  ACARA: number;
-  SUPERMERCADO: number;
-  SEC: number;
-  OSECAC: number;
-  OTROS: number;
-  REPO_CAJA_CHICA: number;
-  REPO_RENTAS_CHICA: number;
-  ICBC: number;
-  FORD: number;
-  SICARDI: number;
-  PATAGONIA: number;
-  IVECO: number;
-  CNH: number;
-  GESTORIA_FORD: number;
-  ALRA: number;
-}
+/** Dynamic values object sent to Postgres procesar_*_diario functions.
+ *  Keys are column_key from conceptos table + static keys (DEPOSITO_*, CC accounts, etc.) */
+export type DiarioValues = Record<string, number>;
 
 export interface BatchResult {
   totalMovimientos: number;
@@ -450,7 +375,7 @@ export const movimientosApi = {
    */
   createRentasDiario: async (payload: {
     fecha: string;
-    values: RentasDiarioValues;
+    values: DiarioValues;
     entregado: number;
   }): Promise<BatchResponse> => {
     const { fecha, values, entregado } = payload;
@@ -491,7 +416,7 @@ export const movimientosApi = {
    */
   createCajaDiario: async (payload: {
     fecha: string;
-    values: CajaDiarioValues;
+    values: DiarioValues;
     entregado: number;
   }): Promise<BatchResponse> => {
     const { fecha, values, entregado } = payload;

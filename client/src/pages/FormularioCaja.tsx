@@ -1,72 +1,55 @@
-import React, { useState, useRef } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import React, { useState, useRef, useMemo } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { showToast } from '@/components/ui/Toast';
-import { Save, X, Calculator, Upload } from 'lucide-react';
+import { Save, X, Calculator, Upload, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { movimientosApi } from '@/services/supabase';
+import { movimientosApi, conceptosApi } from '@/services/supabase';
 
-interface ConceptoValues {
-  // Conceptos que suman (5)
-  ARANCEL: number;
-  SUAT_SELLADO: number;
-  SUCERP_SELLADO: number;
-  CONSULTAS: number;
-  FORMULARIOS: number;
-  // Conceptos que restan (3)
-  POSNET: number;
-  VEP: number;
-  EPAGOS: number;
-  // Depósitos adicionales (12)
-  DEPOSITO_1: number;
-  DEPOSITO_2: number;
-  DEPOSITO_3: number;
-  DEPOSITO_4: number;
-  DEPOSITO_5: number;
-  DEPOSITO_6: number;
-  DEPOSITO_7: number;
-  DEPOSITO_8: number;
-  DEPOSITO_9: number;
-  DEPOSITO_10: number;
-  DEPOSITO_11: number;
-  DEPOSITO_12: number;
-  // Otros gastos (12)
-  LIBRERIA: number;
-  MARIA: number;
-  TERE: number;
-  DAMI: number;
-  MUMI: number;
-  AGUA: number;
-  CARGAS_SOCIALES: number;
-  EDESUR: number;
-  ACARA: number;
-  SUPERMERCADO: number;
-  SEC: number;
-  OSECAC: number;
-  OTROS: number;
-  REPO_CAJA_CHICA: number;
-  REPO_RENTAS_CHICA: number;
-  // Gastos cuentas corrientes (8)
-  ICBC: number;
-  FORD: number;
-  SICARDI: number;
-  PATAGONIA: number;
-  IVECO: number;
-  CNH: number;
-  GESTORIA_FORD: number;
-  ALRA: number;
-}
+// Conceptos with these column_keys subtract from total instead of adding
+const RESTAN_KEYS = new Set(['POSNET', 'POSNET_CAJA']);
+
+// CC account column keys (these appear in their own section, not in the concepto section)
+const CC_KEYS = ['ICBC', 'FORD', 'SICARDI', 'PATAGONIA', 'IVECO', 'CNH', 'GESTORIA_FORD', 'ALRA'];
+const CC_KEY_SET = new Set(CC_KEYS);
+const CC_LABELS: Record<string, string> = {
+  ICBC: 'ICBC', FORD: 'FORD', SICARDI: 'SICARDI', PATAGONIA: 'PATAGONIA',
+  IVECO: 'IVECO', CNH: 'CNH', GESTORIA_FORD: 'GESTORIA FORD', ALRA: 'ALRA',
+};
+
+// Static "restan" keys that are NOT from conceptos table (VEP, EPAGOS)
+const STATIC_RESTAN = [
+  { key: 'VEP', label: 'VEP' },
+  { key: 'EPAGOS', label: 'EPAGOS' },
+];
+
+// Otros gastos keys (static, from gastos_registrales/adelantos tables)
+const OTROS_GASTOS = [
+  { key: 'LIBRERIA', label: 'LIBRERIA' },
+  { key: 'MARIA', label: 'MARIA' },
+  { key: 'TERE', label: 'TERE' },
+  { key: 'DAMI', label: 'DAMI' },
+  { key: 'MUMI', label: 'MUMI' },
+  { key: 'AGUA', label: 'AGUA' },
+  { key: 'CARGAS_SOCIALES', label: 'CARGAS SOCIALES' },
+  { key: 'EDESUR', label: 'EDESUR' },
+  { key: 'ACARA', label: 'ACARA' },
+  { key: 'SUPERMERCADO', label: 'SUPERMERCADO' },
+  { key: 'SEC', label: 'SEC' },
+  { key: 'OSECAC', label: 'OSECAC' },
+  { key: 'OTROS', label: 'OTROS' },
+  { key: 'REPO_CAJA_CHICA', label: 'REPO CAJA CHICA' },
+  { key: 'REPO_RENTAS_CHICA', label: 'REPO RENTAS CHICA' },
+];
 
 // Evaluar expresiones matemáticas simples (ej: "100+200+300" → 600)
 const evaluateExpression = (expr: string): number | null => {
   const trimmed = expr.trim();
   if (!trimmed) return null;
-  // Solo permitir dígitos, operadores, paréntesis, puntos y espacios
   if (!/^[\d\s+\-*/().]+$/.test(trimmed)) return null;
-  // Solo evaluar si tiene algún operador
   if (!/[+\-*/]/.test(trimmed)) return null;
   try {
     const result = new Function(`return (${trimmed})`)();
@@ -103,7 +86,6 @@ const ConceptoInput: React.FC<{
         }}
         onChange={(e) => {
           setText(e.target.value);
-          // Si es un número simple, actualizar en tiempo real
           const num = parseFloat(e.target.value);
           if (!isNaN(num) && !/[+\-*/]/.test(e.target.value.slice(1))) {
             onChange(e.target.value);
@@ -134,53 +116,7 @@ const FormularioCaja: React.FC = () => {
   const today = new Date();
 
   const [fecha, setFecha] = useState<string>(format(today, 'yyyy-MM-dd'));
-
-  const [values, setValues] = useState<ConceptoValues>({
-    ARANCEL: 0,
-    SUAT_SELLADO: 0,
-    SUCERP_SELLADO: 0,
-    CONSULTAS: 0,
-    FORMULARIOS: 0,
-    POSNET: 0,
-    VEP: 0,
-    EPAGOS: 0,
-    DEPOSITO_1: 0,
-    DEPOSITO_2: 0,
-    DEPOSITO_3: 0,
-    DEPOSITO_4: 0,
-    DEPOSITO_5: 0,
-    DEPOSITO_6: 0,
-    DEPOSITO_7: 0,
-    DEPOSITO_8: 0,
-    DEPOSITO_9: 0,
-    DEPOSITO_10: 0,
-    DEPOSITO_11: 0,
-    DEPOSITO_12: 0,
-    LIBRERIA: 0,
-    MARIA: 0,
-    TERE: 0,
-    DAMI: 0,
-    MUMI: 0,
-    AGUA: 0,
-    CARGAS_SOCIALES: 0,
-    EDESUR: 0,
-    ACARA: 0,
-    SUPERMERCADO: 0,
-    SEC: 0,
-    OSECAC: 0,
-    OTROS: 0,
-    REPO_CAJA_CHICA: 0,
-    REPO_RENTAS_CHICA: 0,
-    ICBC: 0,
-    FORD: 0,
-    SICARDI: 0,
-    PATAGONIA: 0,
-    IVECO: 0,
-    CNH: 0,
-    GESTORIA_FORD: 0,
-    ALRA: 0,
-  });
-
+  const [values, setValues] = useState<Record<string, number>>({});
   const [entregado, setEntregado] = useState<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -189,66 +125,45 @@ const FormularioCaja: React.FC = () => {
     isOpen: boolean;
     diferencia: number;
   }>({ isOpen: false, diferencia: 0 });
-
   const [cancelDialog, setCancelDialog] = useState(false);
 
+  // Fetch conceptos CAJA from DB
+  const { data: allConceptos = [], isLoading: conceptosLoading } = useQuery({
+    queryKey: ['conceptos', 'CAJA'],
+    queryFn: () => conceptosApi.getAll('CAJA'),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Split conceptos into suman/restan, excluding CC accounts
+  const conceptosSuman = useMemo(
+    () => allConceptos.filter(c => !RESTAN_KEYS.has(c.column_key) && !CC_KEY_SET.has(c.column_key)),
+    [allConceptos]
+  );
+  const conceptosRestan = useMemo(
+    () => allConceptos.filter(c => RESTAN_KEYS.has(c.column_key)),
+    [allConceptos]
+  );
+
   // Calcular totales
-  const totalSuman =
-    values.ARANCEL +
-    values.SUAT_SELLADO +
-    values.SUCERP_SELLADO +
-    values.CONSULTAS +
-    values.FORMULARIOS;
+  const totalSuman = conceptosSuman.reduce((sum, c) => sum + (values[c.column_key] || 0), 0);
 
-  const totalRestan = values.POSNET + values.VEP + values.EPAGOS;
+  const totalConceptosRestan = conceptosRestan.reduce((sum, c) => sum + (values[c.column_key] || 0), 0);
+  const totalStaticRestan = STATIC_RESTAN.reduce((sum, s) => sum + (values[s.key] || 0), 0);
+  const totalRestan = totalConceptosRestan + totalStaticRestan;
 
-  const totalDepositos =
-    values.DEPOSITO_1 +
-    values.DEPOSITO_2 +
-    values.DEPOSITO_3 +
-    values.DEPOSITO_4 +
-    values.DEPOSITO_5 +
-    values.DEPOSITO_6 +
-    values.DEPOSITO_7 +
-    values.DEPOSITO_8 +
-    values.DEPOSITO_9 +
-    values.DEPOSITO_10 +
-    values.DEPOSITO_11 +
-    values.DEPOSITO_12;
+  const totalDepositos = Array.from({ length: 12 }, (_, i) => values[`DEPOSITO_${i + 1}`] || 0)
+    .reduce((a, b) => a + b, 0);
 
-  const totalOtrosGastos =
-    values.LIBRERIA +
-    values.MARIA +
-    values.TERE +
-    values.DAMI +
-    values.MUMI +
-    values.AGUA +
-    values.CARGAS_SOCIALES +
-    values.EDESUR +
-    values.ACARA +
-    values.SUPERMERCADO +
-    values.SEC +
-    values.OSECAC +
-    values.OTROS +
-    values.REPO_CAJA_CHICA +
-    values.REPO_RENTAS_CHICA;
+  const totalOtrosGastos = OTROS_GASTOS.reduce((sum, g) => sum + (values[g.key] || 0), 0);
 
-  const totalGastosCuentas =
-    values.ICBC +
-    values.FORD +
-    values.SICARDI +
-    values.PATAGONIA +
-    values.IVECO +
-    values.CNH +
-    values.GESTORIA_FORD +
-    values.ALRA;
+  const totalGastosCuentas = CC_KEYS.reduce((sum, key) => sum + (values[key] || 0), 0);
 
   const total = totalSuman - totalRestan - totalDepositos - totalOtrosGastos - totalGastosCuentas;
   const diferencia = entregado - total;
 
-  const handleInputChange = (concepto: keyof ConceptoValues, value: string) => {
+  const handleInputChange = (key: string, value: string) => {
     const numValue = parseFloat(value) || 0;
-    setValues((prev) => ({ ...prev, [concepto]: numValue }));
+    setValues((prev) => ({ ...prev, [key]: numValue }));
   };
 
   const formatCurrency = (value: number): string => {
@@ -265,7 +180,6 @@ const FormularioCaja: React.FC = () => {
     onSuccess: (response) => {
       showToast.success(response.message);
 
-      // Mostrar alertas adicionales si existen
       if (response.data.alertas && response.data.alertas.length > 0) {
         response.data.alertas.forEach((alerta: string, index: number) => {
           setTimeout(() => {
@@ -275,51 +189,7 @@ const FormularioCaja: React.FC = () => {
       }
 
       // Limpiar formulario
-      setValues({
-        ARANCEL: 0,
-        SUAT_SELLADO: 0,
-        SUCERP_SELLADO: 0,
-        CONSULTAS: 0,
-        FORMULARIOS: 0,
-        POSNET: 0,
-        VEP: 0,
-        EPAGOS: 0,
-        DEPOSITO_1: 0,
-        DEPOSITO_2: 0,
-        DEPOSITO_3: 0,
-        DEPOSITO_4: 0,
-        DEPOSITO_5: 0,
-        DEPOSITO_6: 0,
-        DEPOSITO_7: 0,
-        DEPOSITO_8: 0,
-        DEPOSITO_9: 0,
-        DEPOSITO_10: 0,
-        DEPOSITO_11: 0,
-        DEPOSITO_12: 0,
-        LIBRERIA: 0,
-        MARIA: 0,
-        TERE: 0,
-        DAMI: 0,
-        MUMI: 0,
-        AGUA: 0,
-        CARGAS_SOCIALES: 0,
-        EDESUR: 0,
-        ACARA: 0,
-        SUPERMERCADO: 0,
-        SEC: 0,
-        OSECAC: 0,
-        OTROS: 0,
-        REPO_CAJA_CHICA: 0,
-        REPO_RENTAS_CHICA: 0,
-        ICBC: 0,
-        FORD: 0,
-        SICARDI: 0,
-        PATAGONIA: 0,
-        IVECO: 0,
-        CNH: 0,
-        GESTORIA_FORD: 0,
-        ALRA: 0,
-      });
+      setValues({});
       setEntregado(0);
 
       // Invalidar queries
@@ -345,7 +215,6 @@ const FormularioCaja: React.FC = () => {
         showToast.error(`${errores.length} errores encontrados. Revisa la consola.`);
         console.error('Errores de importación:', errores);
       }
-      // Invalidar queries
       queryClient.invalidateQueries({ queryKey: ['movimientos'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
     },
@@ -380,32 +249,22 @@ const FormularioCaja: React.FC = () => {
   };
 
   const handleSave = () => {
-    // Validar que al menos un concepto tenga valor
     const tieneValores = Object.values(values).some((v) => v > 0);
     if (!tieneValores) {
       showToast.error('Debe ingresar al menos un valor');
       return;
     }
 
-    // Confirmar si la diferencia no es cero
     if (diferencia !== 0 && entregado > 0) {
       setDiferenciaDialog({ isOpen: true, diferencia });
       return;
     }
 
-    saveMutation.mutate({
-      fecha,
-      values,
-      entregado,
-    });
+    saveMutation.mutate({ fecha, values, entregado });
   };
 
   const confirmSaveWithDiferencia = () => {
-    saveMutation.mutate({
-      fecha,
-      values,
-      entregado,
-    });
+    saveMutation.mutate({ fecha, values, entregado });
     setDiferenciaDialog({ isOpen: false, diferencia: 0 });
   };
 
@@ -477,235 +336,95 @@ const FormularioCaja: React.FC = () => {
               Información Básica
             </h2>
 
-            {/* Conceptos que SUMAN */}
-            <div className="bg-success-light rounded-lg p-5 space-y-4 mb-5">
-              <h3 className="text-xs font-semibold text-success uppercase tracking-wide">
-                CONCEPTOS QUE SUMAN
-              </h3>
-              <div className="grid grid-cols-3 gap-4">
-                <ConceptoInput
-                  label="ARANCEL"
-                  value={values.ARANCEL}
-                  onChange={(v) => handleInputChange('ARANCEL', v)}
-                />
-                <ConceptoInput
-                  label="SUAT - SELLADO"
-                  value={values.SUAT_SELLADO}
-                  onChange={(v) => handleInputChange('SUAT_SELLADO', v)}
-                />
-                <ConceptoInput
-                  label="SUCERP - SELLADO"
-                  value={values.SUCERP_SELLADO}
-                  onChange={(v) => handleInputChange('SUCERP_SELLADO', v)}
-                />
+            {conceptosLoading ? (
+              <div className="flex items-center justify-center py-8 text-text-muted">
+                <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                Cargando conceptos...
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <ConceptoInput
-                  label="CONSULTAS"
-                  value={values.CONSULTAS}
-                  onChange={(v) => handleInputChange('CONSULTAS', v)}
-                />
-                <ConceptoInput
-                  label="FORMULARIOS"
-                  value={values.FORMULARIOS}
-                  onChange={(v) => handleInputChange('FORMULARIOS', v)}
-                />
-              </div>
-            </div>
+            ) : (
+              <>
+                {/* Conceptos que SUMAN (dynamic from DB) */}
+                {conceptosSuman.length > 0 && (
+                  <div className="bg-success-light rounded-lg p-5 space-y-4 mb-5">
+                    <h3 className="text-xs font-semibold text-success uppercase tracking-wide">
+                      CONCEPTOS QUE SUMAN
+                    </h3>
+                    <div className="grid grid-cols-3 gap-4">
+                      {conceptosSuman.map(c => (
+                        <ConceptoInput
+                          key={c.id}
+                          label={c.nombre}
+                          value={values[c.column_key] || 0}
+                          onChange={(v) => handleInputChange(c.column_key, v)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
 
-            {/* Conceptos que RESTAN */}
-            <div className="bg-error-light rounded-lg p-5 mb-5">
-              <h3 className="text-xs font-semibold text-error uppercase tracking-wide mb-4">
-                CONCEPTOS QUE RESTAN
-              </h3>
-              <div className="grid grid-cols-3 gap-4">
-                <ConceptoInput
-                  label="POSNET"
-                  value={values.POSNET}
-                  onChange={(v) => handleInputChange('POSNET', v)}
-                />
-                <ConceptoInput
-                  label="VEP"
-                  value={values.VEP}
-                  onChange={(v) => handleInputChange('VEP', v)}
-                />
-                <ConceptoInput
-                  label="EPAGOS"
-                  value={values.EPAGOS}
-                  onChange={(v) => handleInputChange('EPAGOS', v)}
-                />
-              </div>
-            </div>
+                {/* Conceptos que RESTAN (dynamic + static VEP/EPAGOS) */}
+                <div className="bg-error-light rounded-lg p-5 mb-5">
+                  <h3 className="text-xs font-semibold text-error uppercase tracking-wide mb-4">
+                    CONCEPTOS QUE RESTAN
+                  </h3>
+                  <div className="grid grid-cols-3 gap-4">
+                    {conceptosRestan.map(c => (
+                      <ConceptoInput
+                        key={c.id}
+                        label={c.nombre}
+                        value={values[c.column_key] || 0}
+                        onChange={(v) => handleInputChange(c.column_key, v)}
+                      />
+                    ))}
+                    {STATIC_RESTAN.map(s => (
+                      <ConceptoInput
+                        key={s.key}
+                        label={s.label}
+                        value={values[s.key] || 0}
+                        onChange={(v) => handleInputChange(s.key, v)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
 
-            {/* Depósitos Adicionales */}
+            {/* Depósitos Adicionales (static) */}
             <div className="bg-background rounded-lg p-5 mb-5">
               <h3 className="text-xs font-semibold text-text-secondary uppercase tracking-wide mb-4">
                 DEPOSITOS ADICIONALES
               </h3>
-              <div className="space-y-4">
-                <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-4 gap-4">
+                {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
                   <ConceptoInput
-                    label="DEPOSITO 1"
-                    value={values.DEPOSITO_1}
-                    onChange={(v) => handleInputChange('DEPOSITO_1', v)}
+                    key={n}
+                    label={`DEPOSITO ${n}`}
+                    value={values[`DEPOSITO_${n}`] || 0}
+                    onChange={(v) => handleInputChange(`DEPOSITO_${n}`, v)}
                   />
-                  <ConceptoInput
-                    label="DEPOSITO 2"
-                    value={values.DEPOSITO_2}
-                    onChange={(v) => handleInputChange('DEPOSITO_2', v)}
-                  />
-                  <ConceptoInput
-                    label="DEPOSITO 3"
-                    value={values.DEPOSITO_3}
-                    onChange={(v) => handleInputChange('DEPOSITO_3', v)}
-                  />
-                  <ConceptoInput
-                    label="DEPOSITO 4"
-                    value={values.DEPOSITO_4}
-                    onChange={(v) => handleInputChange('DEPOSITO_4', v)}
-                  />
-                </div>
-                <div className="grid grid-cols-4 gap-4">
-                  <ConceptoInput
-                    label="DEPOSITO 5"
-                    value={values.DEPOSITO_5}
-                    onChange={(v) => handleInputChange('DEPOSITO_5', v)}
-                  />
-                  <ConceptoInput
-                    label="DEPOSITO 6"
-                    value={values.DEPOSITO_6}
-                    onChange={(v) => handleInputChange('DEPOSITO_6', v)}
-                  />
-                  <ConceptoInput
-                    label="DEPOSITO 7"
-                    value={values.DEPOSITO_7}
-                    onChange={(v) => handleInputChange('DEPOSITO_7', v)}
-                  />
-                  <ConceptoInput
-                    label="DEPOSITO 8"
-                    value={values.DEPOSITO_8}
-                    onChange={(v) => handleInputChange('DEPOSITO_8', v)}
-                  />
-                </div>
-                <div className="grid grid-cols-4 gap-4">
-                  <ConceptoInput
-                    label="DEPOSITO 9"
-                    value={values.DEPOSITO_9}
-                    onChange={(v) => handleInputChange('DEPOSITO_9', v)}
-                  />
-                  <ConceptoInput
-                    label="DEPOSITO 10"
-                    value={values.DEPOSITO_10}
-                    onChange={(v) => handleInputChange('DEPOSITO_10', v)}
-                  />
-                  <ConceptoInput
-                    label="DEPOSITO 11"
-                    value={values.DEPOSITO_11}
-                    onChange={(v) => handleInputChange('DEPOSITO_11', v)}
-                  />
-                  <ConceptoInput
-                    label="DEPOSITO 12"
-                    value={values.DEPOSITO_12}
-                    onChange={(v) => handleInputChange('DEPOSITO_12', v)}
-                  />
-                </div>
+                ))}
               </div>
             </div>
 
-            {/* Otros Gastos */}
+            {/* Otros Gastos (static) */}
             <div className="bg-warning-light rounded-lg p-5">
               <h3 className="text-xs font-semibold text-warning uppercase tracking-wide mb-4">
                 OTROS GASTOS
               </h3>
-              <div className="space-y-4">
-                <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-4 gap-4">
+                {OTROS_GASTOS.map(g => (
                   <ConceptoInput
-                    label="LIBRERIA"
-                    value={values.LIBRERIA}
-                    onChange={(v) => handleInputChange('LIBRERIA', v)}
+                    key={g.key}
+                    label={g.label}
+                    value={values[g.key] || 0}
+                    onChange={(v) => handleInputChange(g.key, v)}
                   />
-                  <ConceptoInput
-                    label="MARIA"
-                    value={values.MARIA}
-                    onChange={(v) => handleInputChange('MARIA', v)}
-                  />
-                  <ConceptoInput
-                    label="TERE"
-                    value={values.TERE}
-                    onChange={(v) => handleInputChange('TERE', v)}
-                  />
-                  <ConceptoInput
-                    label="DAMI"
-                    value={values.DAMI}
-                    onChange={(v) => handleInputChange('DAMI', v)}
-                  />
-                </div>
-                <div className="grid grid-cols-4 gap-4">
-                  <ConceptoInput
-                    label="MUMI"
-                    value={values.MUMI}
-                    onChange={(v) => handleInputChange('MUMI', v)}
-                  />
-                  <ConceptoInput
-                    label="AGUA"
-                    value={values.AGUA}
-                    onChange={(v) => handleInputChange('AGUA', v)}
-                  />
-                  <ConceptoInput
-                    label="CARGAS SOCIALES"
-                    value={values.CARGAS_SOCIALES}
-                    onChange={(v) => handleInputChange('CARGAS_SOCIALES', v)}
-                  />
-                  <ConceptoInput
-                    label="EDESUR"
-                    value={values.EDESUR}
-                    onChange={(v) => handleInputChange('EDESUR', v)}
-                  />
-                </div>
-                <div className="grid grid-cols-4 gap-4">
-                  <ConceptoInput
-                    label="ACARA"
-                    value={values.ACARA}
-                    onChange={(v) => handleInputChange('ACARA', v)}
-                  />
-                  <ConceptoInput
-                    label="SUPERMERCADO"
-                    value={values.SUPERMERCADO}
-                    onChange={(v) => handleInputChange('SUPERMERCADO', v)}
-                  />
-                  <ConceptoInput
-                    label="SEC"
-                    value={values.SEC}
-                    onChange={(v) => handleInputChange('SEC', v)}
-                  />
-                  <ConceptoInput
-                    label="OSECAC"
-                    value={values.OSECAC}
-                    onChange={(v) => handleInputChange('OSECAC', v)}
-                  />
-                </div>
-                <div className="grid grid-cols-4 gap-4">
-                  <ConceptoInput
-                    label="OTROS"
-                    value={values.OTROS}
-                    onChange={(v) => handleInputChange('OTROS', v)}
-                  />
-                  <ConceptoInput
-                    label="REPO CAJA CHICA"
-                    value={values.REPO_CAJA_CHICA}
-                    onChange={(v) => handleInputChange('REPO_CAJA_CHICA', v)}
-                  />
-                  <ConceptoInput
-                    label="REPO RENTAS CHICA"
-                    value={values.REPO_RENTAS_CHICA}
-                    onChange={(v) => handleInputChange('REPO_RENTAS_CHICA', v)}
-                  />
-                </div>
+                ))}
               </div>
             </div>
           </div>
 
-          {/* Card 2: Gastos de Cuentas Corrientes */}
+          {/* Card 2: Gastos de Cuentas Corrientes (static) */}
           <div className="bg-card rounded-xl border border-border p-6">
             <h2 className="text-base font-semibold text-text-primary mb-5">
               Gastos de Cuentas Corrientes
@@ -713,48 +432,14 @@ const FormularioCaja: React.FC = () => {
 
             <div className="bg-background rounded-lg p-5 space-y-4">
               <div className="grid grid-cols-4 gap-4">
-                <ConceptoInput
-                  label="ICBC"
-                  value={values.ICBC}
-                  onChange={(v) => handleInputChange('ICBC', v)}
-                />
-                <ConceptoInput
-                  label="FORD"
-                  value={values.FORD}
-                  onChange={(v) => handleInputChange('FORD', v)}
-                />
-                <ConceptoInput
-                  label="SICARDI"
-                  value={values.SICARDI}
-                  onChange={(v) => handleInputChange('SICARDI', v)}
-                />
-                <ConceptoInput
-                  label="PATAGONIA"
-                  value={values.PATAGONIA}
-                  onChange={(v) => handleInputChange('PATAGONIA', v)}
-                />
-              </div>
-              <div className="grid grid-cols-4 gap-4">
-                <ConceptoInput
-                  label="IVECO"
-                  value={values.IVECO}
-                  onChange={(v) => handleInputChange('IVECO', v)}
-                />
-                <ConceptoInput
-                  label="CNH"
-                  value={values.CNH}
-                  onChange={(v) => handleInputChange('CNH', v)}
-                />
-                <ConceptoInput
-                  label="GESTORIA FORD"
-                  value={values.GESTORIA_FORD}
-                  onChange={(v) => handleInputChange('GESTORIA_FORD', v)}
-                />
-                <ConceptoInput
-                  label="ALRA"
-                  value={values.ALRA}
-                  onChange={(v) => handleInputChange('ALRA', v)}
-                />
+                {CC_KEYS.map(key => (
+                  <ConceptoInput
+                    key={key}
+                    label={CC_LABELS[key] || key}
+                    value={values[key] || 0}
+                    onChange={(v) => handleInputChange(key, v)}
+                  />
+                ))}
               </div>
             </div>
           </div>
@@ -821,7 +506,7 @@ const FormularioCaja: React.FC = () => {
                 icon={Save}
                 onClick={handleSave}
                 loading={saveMutation.isPending}
-                disabled={saveMutation.isPending}
+                disabled={saveMutation.isPending || conceptosLoading}
                 className="w-full"
               >
                 {saveMutation.isPending ? 'Guardando...' : 'Guardar y Nuevo'}

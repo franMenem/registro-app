@@ -1,48 +1,24 @@
-import React, { useState, useRef } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import React, { useState, useRef, useMemo } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { showToast } from '@/components/ui/Toast';
-import { Save, X, Calculator, Upload } from 'lucide-react';
+import { Save, X, Calculator, Upload, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { movimientosApi } from '@/services/supabase';
+import { movimientosApi, conceptosApi } from '@/services/supabase';
 
-interface ConceptoValues {
-  // Conceptos que suman
-  GIT: number;
-  SUAT_ALTA: number;
-  SUAT_PATENTES: number;
-  SUAT_INFRACCIONES: number;
-  CONSULTA: number;
-  SUCERP: number;
-  SUGIT: number;
-  PROVINCIA: number;
-  // Conceptos que restan
-  POSNET: number;
-  DEPOSITO_1: number;
-  DEPOSITO_2: number;
-  DEPOSITO_3: number;
-  DEPOSITO_4: number;
-  DEPOSITO_5: number;
-  DEPOSITO_6: number;
-  DEPOSITO_7: number;
-  DEPOSITO_8: number;
-  DEPOSITO_9: number;
-  DEPOSITO_10: number;
-  DEPOSITO_11: number;
-  DEPOSITO_12: number;
-  // Gastos cuentas corrientes
-  ICBC: number;
-  FORD: number;
-  SICARDI: number;
-  PATAGONIA: number;
-  IVECO: number;
-  CNH: number;
-  GESTORIA_FORD: number;
-  ALRA: number;
-}
+// Conceptos with these column_keys subtract from total instead of adding
+const RESTAN_KEYS = new Set(['POSNET', 'POSNET_CAJA']);
+
+// CC account column keys (these appear in their own section, not in the concepto section)
+const CC_KEYS = ['ICBC', 'FORD', 'SICARDI', 'PATAGONIA', 'IVECO', 'CNH', 'GESTORIA_FORD', 'ALRA'];
+const CC_KEY_SET = new Set(CC_KEYS);
+const CC_LABELS: Record<string, string> = {
+  ICBC: 'ICBC', FORD: 'FORD', SICARDI: 'SICARDI', PATAGONIA: 'PATAGONIA',
+  IVECO: 'IVECO', CNH: 'CNH', GESTORIA_FORD: 'GESTORIA FORD', ALRA: 'ALRA',
+};
 
 // Evaluar expresiones matemáticas simples (ej: "100+200+300" → 600)
 const evaluateExpression = (expr: string): number | null => {
@@ -115,41 +91,7 @@ const FormularioRentas: React.FC = () => {
   const today = new Date();
 
   const [fecha, setFecha] = useState<string>(format(today, 'yyyy-MM-dd'));
-
-  const initialValues: ConceptoValues = {
-    GIT: 0,
-    SUAT_ALTA: 0,
-    SUAT_PATENTES: 0,
-    SUAT_INFRACCIONES: 0,
-    CONSULTA: 0,
-    SUCERP: 0,
-    SUGIT: 0,
-    PROVINCIA: 0,
-    POSNET: 0,
-    DEPOSITO_1: 0,
-    DEPOSITO_2: 0,
-    DEPOSITO_3: 0,
-    DEPOSITO_4: 0,
-    DEPOSITO_5: 0,
-    DEPOSITO_6: 0,
-    DEPOSITO_7: 0,
-    DEPOSITO_8: 0,
-    DEPOSITO_9: 0,
-    DEPOSITO_10: 0,
-    DEPOSITO_11: 0,
-    DEPOSITO_12: 0,
-    ICBC: 0,
-    FORD: 0,
-    SICARDI: 0,
-    PATAGONIA: 0,
-    IVECO: 0,
-    CNH: 0,
-    GESTORIA_FORD: 0,
-    ALRA: 0,
-  };
-
-  const [values, setValues] = useState<ConceptoValues>(initialValues);
-
+  const [values, setValues] = useState<Record<string, number>>({});
   const [entregado, setEntregado] = useState<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -158,43 +100,40 @@ const FormularioRentas: React.FC = () => {
     isOpen: boolean;
     diferencia: number;
   }>({ isOpen: false, diferencia: 0 });
-
   const [cancelDialog, setCancelDialog] = useState(false);
 
+  // Fetch conceptos RENTAS from DB
+  const { data: allConceptos = [], isLoading: conceptosLoading } = useQuery({
+    queryKey: ['conceptos', 'RENTAS'],
+    queryFn: () => conceptosApi.getAll('RENTAS'),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Split conceptos into suman/restan, excluding CC accounts (they have their own section)
+  const conceptosSuman = useMemo(
+    () => allConceptos.filter(c => !RESTAN_KEYS.has(c.column_key) && !CC_KEY_SET.has(c.column_key)),
+    [allConceptos]
+  );
+  const conceptosRestan = useMemo(
+    () => allConceptos.filter(c => RESTAN_KEYS.has(c.column_key)),
+    [allConceptos]
+  );
+
   // Calcular totales
-  const totalSuman =
-    values.GIT +
-    values.SUAT_ALTA +
-    values.SUAT_PATENTES +
-    values.SUAT_INFRACCIONES +
-    values.CONSULTA +
-    values.SUCERP +
-    values.SUGIT +
-    values.PROVINCIA;
+  const totalSuman = conceptosSuman.reduce((sum, c) => sum + (values[c.column_key] || 0), 0);
+  const totalRestan = conceptosRestan.reduce((sum, c) => sum + (values[c.column_key] || 0), 0);
 
-  const totalDepositos = values.DEPOSITO_1 + values.DEPOSITO_2 + values.DEPOSITO_3 +
-    values.DEPOSITO_4 + values.DEPOSITO_5 + values.DEPOSITO_6 +
-    values.DEPOSITO_7 + values.DEPOSITO_8 + values.DEPOSITO_9 +
-    values.DEPOSITO_10 + values.DEPOSITO_11 + values.DEPOSITO_12;
+  const totalDepositos = Array.from({ length: 12 }, (_, i) => values[`DEPOSITO_${i + 1}`] || 0)
+    .reduce((a, b) => a + b, 0);
 
-  const totalRestan = values.POSNET + totalDepositos;
+  const totalGastos = CC_KEYS.reduce((sum, key) => sum + (values[key] || 0), 0);
 
-  const totalGastos =
-    values.ICBC +
-    values.FORD +
-    values.SICARDI +
-    values.PATAGONIA +
-    values.IVECO +
-    values.CNH +
-    values.GESTORIA_FORD +
-    values.ALRA;
-
-  const total = totalSuman - totalRestan - totalGastos;
+  const total = totalSuman - totalRestan - totalDepositos - totalGastos;
   const diferencia = entregado - total;
 
-  const handleInputChange = (concepto: keyof ConceptoValues, value: string) => {
+  const handleInputChange = (key: string, value: string) => {
     const numValue = parseFloat(value) || 0;
-    setValues((prev) => ({ ...prev, [concepto]: numValue }));
+    setValues((prev) => ({ ...prev, [key]: numValue }));
   };
 
   const formatCurrency = (value: number): string => {
@@ -211,7 +150,6 @@ const FormularioRentas: React.FC = () => {
     onSuccess: (response) => {
       showToast.success(response.message);
 
-      // Mostrar alertas adicionales si existen
       if (response.data.alertas && response.data.alertas.length > 0) {
         response.data.alertas.forEach((alerta: string, index: number) => {
           setTimeout(() => {
@@ -221,7 +159,7 @@ const FormularioRentas: React.FC = () => {
       }
 
       // Limpiar formulario
-      setValues(initialValues);
+      setValues({});
       setEntregado(0);
 
       // Invalidar queries
@@ -247,7 +185,6 @@ const FormularioRentas: React.FC = () => {
         showToast.error(`${errores.length} errores encontrados. Revisa la consola.`);
         console.error('Errores de importación:', errores);
       }
-      // Invalidar queries
       queryClient.invalidateQueries({ queryKey: ['movimientos'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
     },
@@ -282,32 +219,22 @@ const FormularioRentas: React.FC = () => {
   };
 
   const handleSave = () => {
-    // Validar que al menos un concepto tenga valor
     const tieneValores = Object.values(values).some((v) => v > 0);
     if (!tieneValores) {
       showToast.error('Debe ingresar al menos un valor');
       return;
     }
 
-    // Confirmar si la diferencia no es cero
     if (diferencia !== 0 && entregado > 0) {
       setDiferenciaDialog({ isOpen: true, diferencia });
       return;
     }
 
-    saveMutation.mutate({
-      fecha,
-      values,
-      entregado,
-    });
+    saveMutation.mutate({ fecha, values, entregado });
   };
 
   const confirmSaveWithDiferencia = () => {
-    saveMutation.mutate({
-      fecha,
-      values,
-      entregado,
-    });
+    saveMutation.mutate({ fecha, values, entregado });
     setDiferenciaDialog({ isOpen: false, diferencia: 0 });
   };
 
@@ -379,72 +306,54 @@ const FormularioRentas: React.FC = () => {
               Información Básica
             </h2>
 
-            {/* Conceptos que SUMAN */}
-            <div className="bg-success-light rounded-lg p-5 space-y-4 mb-5">
-              <h3 className="text-xs font-semibold text-success uppercase tracking-wide">
-                CONCEPTOS QUE SUMAN
-              </h3>
-              <div className="grid grid-cols-4 gap-4">
-                <ConceptoInput
-                  label="GIT"
-                  value={values.GIT}
-                  onChange={(v) => handleInputChange('GIT', v)}
-                />
-                <ConceptoInput
-                  label="SUAT - ALTA"
-                  value={values.SUAT_ALTA}
-                  onChange={(v) => handleInputChange('SUAT_ALTA', v)}
-                />
-                <ConceptoInput
-                  label="SUAT - PATENTES"
-                  value={values.SUAT_PATENTES}
-                  onChange={(v) => handleInputChange('SUAT_PATENTES', v)}
-                />
-                <ConceptoInput
-                  label="SUAT - INFRACCIONES"
-                  value={values.SUAT_INFRACCIONES}
-                  onChange={(v) => handleInputChange('SUAT_INFRACCIONES', v)}
-                />
+            {conceptosLoading ? (
+              <div className="flex items-center justify-center py-8 text-text-muted">
+                <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                Cargando conceptos...
               </div>
-              <div className="grid grid-cols-4 gap-4">
-                <ConceptoInput
-                  label="CONSULTA"
-                  value={values.CONSULTA}
-                  onChange={(v) => handleInputChange('CONSULTA', v)}
-                />
-                <ConceptoInput
-                  label="SUCERP"
-                  value={values.SUCERP}
-                  onChange={(v) => handleInputChange('SUCERP', v)}
-                />
-                <ConceptoInput
-                  label="SUGIT"
-                  value={values.SUGIT}
-                  onChange={(v) => handleInputChange('SUGIT', v)}
-                />
-                <ConceptoInput
-                  label="PROVINCIA"
-                  value={values.PROVINCIA}
-                  onChange={(v) => handleInputChange('PROVINCIA', v)}
-                />
-              </div>
-            </div>
+            ) : (
+              <>
+                {/* Conceptos que SUMAN (dynamic from DB) */}
+                {conceptosSuman.length > 0 && (
+                  <div className="bg-success-light rounded-lg p-5 space-y-4 mb-5">
+                    <h3 className="text-xs font-semibold text-success uppercase tracking-wide">
+                      CONCEPTOS QUE SUMAN
+                    </h3>
+                    <div className="grid grid-cols-4 gap-4">
+                      {conceptosSuman.map(c => (
+                        <ConceptoInput
+                          key={c.id}
+                          label={c.nombre}
+                          value={values[c.column_key] || 0}
+                          onChange={(v) => handleInputChange(c.column_key, v)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
 
-            {/* Conceptos que RESTAN */}
-            <div className="bg-error-light rounded-lg p-5">
-              <h3 className="text-xs font-semibold text-error uppercase tracking-wide mb-4">
-                CONCEPTOS QUE RESTAN
-              </h3>
-              <div className="grid grid-cols-1 gap-4">
-                <ConceptoInput
-                  label="POSNET"
-                  value={values.POSNET}
-                  onChange={(v) => handleInputChange('POSNET', v)}
-                />
-              </div>
-            </div>
+                {/* Conceptos que RESTAN (dynamic from DB) */}
+                {conceptosRestan.length > 0 && (
+                  <div className="bg-error-light rounded-lg p-5">
+                    <h3 className="text-xs font-semibold text-error uppercase tracking-wide mb-4">
+                      CONCEPTOS QUE RESTAN
+                    </h3>
+                    <div className="grid grid-cols-4 gap-4">
+                      {conceptosRestan.map(c => (
+                        <ConceptoInput
+                          key={c.id}
+                          label={c.nombre}
+                          value={values[c.column_key] || 0}
+                          onChange={(v) => handleInputChange(c.column_key, v)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
 
-            {/* DEPOSITOS */}
+            {/* DEPOSITOS (static) */}
             <div className="bg-error-light rounded-lg p-5 mt-5">
               <h3 className="text-xs font-semibold text-error uppercase tracking-wide mb-4">
                 DEPOSITOS {totalDepositos > 0 && (
@@ -454,19 +363,19 @@ const FormularioRentas: React.FC = () => {
                 )}
               </h3>
               <div className="grid grid-cols-4 gap-4">
-                {([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const).map((n) => (
+                {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
                   <ConceptoInput
                     key={n}
                     label={`DEP ${n}`}
-                    value={values[`DEPOSITO_${n}` as keyof ConceptoValues]}
-                    onChange={(v) => handleInputChange(`DEPOSITO_${n}` as keyof ConceptoValues, v)}
+                    value={values[`DEPOSITO_${n}`] || 0}
+                    onChange={(v) => handleInputChange(`DEPOSITO_${n}`, v)}
                   />
                 ))}
               </div>
             </div>
           </div>
 
-          {/* Card 2: Gastos de Cuentas Corrientes */}
+          {/* Card 2: Gastos de Cuentas Corrientes (static) */}
           <div className="bg-card rounded-xl border border-border p-6">
             <h2 className="text-base font-semibold text-text-primary mb-5">
               Gastos de Cuentas Corrientes
@@ -474,48 +383,14 @@ const FormularioRentas: React.FC = () => {
 
             <div className="bg-background rounded-lg p-5 space-y-4">
               <div className="grid grid-cols-4 gap-4">
-                <ConceptoInput
-                  label="ICBC"
-                  value={values.ICBC}
-                  onChange={(v) => handleInputChange('ICBC', v)}
-                />
-                <ConceptoInput
-                  label="FORD"
-                  value={values.FORD}
-                  onChange={(v) => handleInputChange('FORD', v)}
-                />
-                <ConceptoInput
-                  label="SICARDI"
-                  value={values.SICARDI}
-                  onChange={(v) => handleInputChange('SICARDI', v)}
-                />
-                <ConceptoInput
-                  label="PATAGONIA"
-                  value={values.PATAGONIA}
-                  onChange={(v) => handleInputChange('PATAGONIA', v)}
-                />
-              </div>
-              <div className="grid grid-cols-4 gap-4">
-                <ConceptoInput
-                  label="IVECO"
-                  value={values.IVECO}
-                  onChange={(v) => handleInputChange('IVECO', v)}
-                />
-                <ConceptoInput
-                  label="CNH"
-                  value={values.CNH}
-                  onChange={(v) => handleInputChange('CNH', v)}
-                />
-                <ConceptoInput
-                  label="GESTORIA FORD"
-                  value={values.GESTORIA_FORD}
-                  onChange={(v) => handleInputChange('GESTORIA_FORD', v)}
-                />
-                <ConceptoInput
-                  label="ALRA"
-                  value={values.ALRA}
-                  onChange={(v) => handleInputChange('ALRA', v)}
-                />
+                {CC_KEYS.map(key => (
+                  <ConceptoInput
+                    key={key}
+                    label={CC_LABELS[key] || key}
+                    value={values[key] || 0}
+                    onChange={(v) => handleInputChange(key, v)}
+                  />
+                ))}
               </div>
             </div>
           </div>
@@ -582,7 +457,7 @@ const FormularioRentas: React.FC = () => {
                 icon={Save}
                 onClick={handleSave}
                 loading={saveMutation.isPending}
-                disabled={saveMutation.isPending}
+                disabled={saveMutation.isPending || conceptosLoading}
                 className="w-full"
               >
                 {saveMutation.isPending ? 'Guardando...' : 'Guardar y Nuevo'}

@@ -48,15 +48,13 @@ export {
   movimientosApi,
   type Movimiento,
   type MovimientoCreate,
-  type RentasDiarioValues,
-  type CajaDiarioValues,
+  type DiarioValues,
   type BatchResult,
   type BatchResponse,
 } from './movimientos';
 export {
   planillasApi,
-  type DiaRentas,
-  type DiaCaja,
+  type PlanillaRow,
   type PlanillaFilters,
   type UpdateResult as PlanillaUpdateResult,
 } from './planillas';
