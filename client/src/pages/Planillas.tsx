@@ -7,6 +7,109 @@ import { formatCurrency, formatDate } from '@/utils/format';
 import { Edit, Check, X } from 'lucide-react';
 import { planillasApi, type DiaRentas, type DiaCaja } from '@/services/supabase';
 
+// --- Column group definitions ---
+
+interface ColGroup<T> {
+  label: string;
+  headerCls: string;
+  cols: { key: keyof T; label: string }[];
+}
+
+const RENTAS_GROUPS: ColGroup<DiaRentas>[] = [
+  {
+    label: 'Ingresos (+)',
+    headerCls: 'bg-emerald-500/10 text-emerald-700',
+    cols: [
+      { key: 'GIT', label: 'GIT' },
+      { key: 'SUAT_ALTA', label: 'SUAT Alta' },
+      { key: 'SUAT_PATENTES', label: 'SUAT Pat.' },
+      { key: 'SUAT_INFRACCIONES', label: 'SUAT Infr.' },
+      { key: 'CONSULTA', label: 'Consulta' },
+      { key: 'SUCERP', label: 'SUCERP' },
+      { key: 'SUGIT', label: 'SUGIT' },
+      { key: 'PROVINCIA', label: 'Provincia' },
+    ],
+  },
+  {
+    label: 'Restan (−)',
+    headerCls: 'bg-amber-500/10 text-amber-700',
+    cols: [
+      { key: 'POSNET', label: 'POSNET' },
+      { key: 'DEPOSITOS', label: 'Depósitos' },
+    ],
+  },
+  {
+    label: 'Cuentas (−)',
+    headerCls: 'bg-red-500/10 text-red-700',
+    cols: [
+      { key: 'ICBC', label: 'ICBC' },
+      { key: 'FORD', label: 'FORD' },
+      { key: 'SICARDI', label: 'SICARDI' },
+      { key: 'PATAGONIA', label: 'PATAG.' },
+      { key: 'IVECO', label: 'IVECO' },
+      { key: 'CNH', label: 'CNH' },
+      { key: 'GESTORIA_FORD', label: 'GEST.FORD' },
+      { key: 'ALRA', label: 'ALRA' },
+    ],
+  },
+];
+
+const CAJA_GROUPS: ColGroup<DiaCaja>[] = [
+  {
+    label: 'Ingresos (+)',
+    headerCls: 'bg-emerald-500/10 text-emerald-700',
+    cols: [
+      { key: 'ARANCEL', label: 'Arancel' },
+      { key: 'SUAT_SELLADO', label: 'SUAT Sell.' },
+      { key: 'SUCERP_SELLADO', label: 'SUCERP Sell.' },
+      { key: 'CONSULTAS', label: 'Consultas' },
+      { key: 'FORMULARIOS', label: 'Formularios' },
+    ],
+  },
+  {
+    label: 'Restan (−)',
+    headerCls: 'bg-amber-500/10 text-amber-700',
+    cols: [
+      { key: 'POSNET', label: 'POSNET' },
+      { key: 'VEP', label: 'VEP' },
+      { key: 'EPAGOS', label: 'ePagos' },
+      { key: 'DEPOSITOS', label: 'Depósitos' },
+    ],
+  },
+  {
+    label: 'Otros Gastos (−)',
+    headerCls: 'bg-orange-500/10 text-orange-700',
+    cols: [
+      { key: 'LIBRERIA', label: 'Librería' },
+      { key: 'MARIA', label: 'María' },
+      { key: 'AGUA', label: 'Agua' },
+      { key: 'EDESUR', label: 'Edesur' },
+      { key: 'TERE', label: 'Tere' },
+      { key: 'DAMI', label: 'Dami' },
+      { key: 'MUMI', label: 'Mumi' },
+    ],
+  },
+  {
+    label: 'Cuentas (−)',
+    headerCls: 'bg-red-500/10 text-red-700',
+    cols: [
+      { key: 'ICBC', label: 'ICBC' },
+      { key: 'FORD', label: 'FORD' },
+      { key: 'SICARDI', label: 'SICARDI' },
+      { key: 'PATAGONIA', label: 'PATAG.' },
+      { key: 'IVECO', label: 'IVECO' },
+      { key: 'CNH', label: 'CNH' },
+      { key: 'GESTORIA_FORD', label: 'GEST.FORD' },
+      { key: 'ALRA', label: 'ALRA' },
+    ],
+  },
+];
+
+const RENTAS_ALL_COLS = RENTAS_GROUPS.flatMap((g) => g.cols);
+const CAJA_ALL_COLS = CAJA_GROUPS.flatMap((g) => g.cols);
+const RENTAS_COL_COUNT = RENTAS_ALL_COLS.length + 5; // fecha + data cols + total + entregado + dif + acciones
+const CAJA_COL_COUNT = CAJA_ALL_COLS.length + 5;
+
 const Planillas: React.FC = () => {
   const queryClient = useQueryClient();
 
@@ -178,33 +281,74 @@ const Planillas: React.FC = () => {
       <Card title="Planilla RENTAS">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-border">
-            <thead className="bg-card-hover">
+            <thead>
+              {/* Group header row */}
               <tr>
-                <th className="sticky left-0 z-10 bg-card-hover px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase">Fecha</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-text-secondary uppercase">GIT</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-text-secondary uppercase">SUAT Alta</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-text-secondary uppercase">SUAT Pat.</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-text-secondary uppercase">SUAT Infr.</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-text-secondary uppercase">SUCERP</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-text-secondary uppercase">SUGIT</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-text-secondary uppercase">PROVINCIA</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-text-secondary uppercase">Consulta</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-text-secondary uppercase">POSNET</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-text-secondary uppercase">ICBC</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-text-secondary uppercase">Total</th>
-                <th className="px-4 py-3 text-center text-xs font-medium text-text-secondary uppercase">Acciones</th>
+                <th
+                  rowSpan={2}
+                  className="sticky left-0 z-10 bg-card-hover px-3 py-2 text-left text-xs font-medium text-text-secondary uppercase border-b border-border"
+                >
+                  Fecha
+                </th>
+                {RENTAS_GROUPS.map((group) => (
+                  <th
+                    key={group.label}
+                    colSpan={group.cols.length}
+                    className={`px-2 py-1.5 text-center text-xs font-semibold uppercase border-b border-l border-border ${group.headerCls}`}
+                  >
+                    {group.label}
+                  </th>
+                ))}
+                <th
+                  rowSpan={2}
+                  className="bg-card-hover px-3 py-2 text-right text-xs font-medium text-text-secondary uppercase border-b border-l border-border"
+                >
+                  Total
+                </th>
+                <th
+                  rowSpan={2}
+                  className="bg-blue-500/10 text-blue-700 px-3 py-2 text-right text-xs font-semibold uppercase border-b border-l border-border"
+                >
+                  Entregado
+                </th>
+                <th
+                  rowSpan={2}
+                  className="bg-card-hover px-3 py-2 text-right text-xs font-medium text-text-secondary uppercase border-b border-l border-border"
+                >
+                  Dif.
+                </th>
+                <th
+                  rowSpan={2}
+                  className="bg-card-hover px-3 py-2 text-center text-xs font-medium text-text-secondary uppercase border-b border-l border-border"
+                >
+                  Acciones
+                </th>
+              </tr>
+              {/* Column names row */}
+              <tr className="bg-card-hover">
+                {RENTAS_ALL_COLS.map((col) => (
+                  <th
+                    key={col.key as string}
+                    className={`px-2 py-2 text-right text-[11px] font-medium text-text-secondary uppercase whitespace-nowrap${
+                      // Add left border at group boundaries
+                      RENTAS_GROUPS.some((g) => g.cols[0]?.key === col.key) ? ' border-l border-border' : ''
+                    }`}
+                  >
+                    {col.label}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {rentasLoading ? (
                 <tr>
-                  <td colSpan={13} className="px-4 py-8 text-center text-text-muted">
+                  <td colSpan={RENTAS_COL_COUNT} className="px-4 py-8 text-center text-text-muted">
                     Cargando...
                   </td>
                 </tr>
               ) : rentas.length === 0 ? (
                 <tr>
-                  <td colSpan={13} className="px-4 py-8 text-center text-text-muted">
+                  <td colSpan={RENTAS_COL_COUNT} className="px-4 py-8 text-center text-text-muted">
                     No hay datos
                   </td>
                 </tr>
@@ -215,33 +359,59 @@ const Planillas: React.FC = () => {
 
                   return (
                     <tr key={dia.fecha} className={editando ? 'bg-primary/5' : ''}>
-                      <td className="sticky left-0 z-10 bg-card px-4 py-3 text-sm font-medium">
+                      <td className="sticky left-0 z-10 bg-card px-3 py-2 text-sm font-medium whitespace-nowrap">
                         {formatDate(dia.fecha)}
                       </td>
-                      {(['GIT', 'SUAT_ALTA', 'SUAT_PATENTES', 'SUAT_INFRACCIONES', 'SUCERP', 'SUGIT', 'PROVINCIA', 'CONSULTA', 'POSNET', 'ICBC'] as const).map((campo) => (
-                        <td key={campo} className="px-4 py-3 text-sm text-right">
+                      {RENTAS_ALL_COLS.map(({ key }) => (
+                        <td key={key as string} className="px-2 py-2 text-right">
                           {editando ? (
                             <input
                               type="number"
                               step="0.01"
-                              value={valores[campo]}
+                              value={valores[key] as number}
                               onChange={(e) =>
                                 setValoresEditRentas({
                                   ...valoresEditRentas!,
-                                  [campo]: parseFloat(e.target.value) || 0,
+                                  [key]: parseFloat(e.target.value) || 0,
                                 })
                               }
-                              className="w-28 text-right rounded border border-border px-2 py-1 font-mono text-xs"
+                              className="w-20 text-right rounded border border-border px-1.5 py-1 font-mono text-xs"
                             />
                           ) : (
-                            <span className="font-mono">{formatCurrency(valores[campo])}</span>
+                            <span className="font-mono text-xs">
+                              {formatCurrency(valores[key] as number)}
+                            </span>
                           )}
                         </td>
                       ))}
-                      <td className="px-4 py-3 text-sm text-right font-bold">
-                        {formatCurrency(calcularTotalRentas(valores))}
-                      </td>
-                      <td className="px-4 py-3 text-center">
+                      {(() => {
+                        const total = calcularTotalRentas(valores);
+                        const dif = valores.EFECTIVO - total;
+                        return (
+                          <>
+                            <td className="px-3 py-2 text-right font-bold whitespace-nowrap">
+                              <span className="font-mono text-sm">{formatCurrency(total)}</span>
+                            </td>
+                            <td className="px-3 py-2 text-right whitespace-nowrap bg-blue-500/5">
+                              <span className="font-mono text-sm font-semibold text-blue-700">
+                                {valores.EFECTIVO > 0 ? formatCurrency(valores.EFECTIVO) : '—'}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 text-right whitespace-nowrap">
+                              {valores.EFECTIVO > 0 ? (
+                                <span className={`font-mono text-xs font-semibold ${
+                                  dif === 0 ? 'text-success' : 'text-error'
+                                }`}>
+                                  {dif === 0 ? '$0' : (dif > 0 ? '+' : '') + formatCurrency(dif)}
+                                </span>
+                              ) : (
+                                <span className="text-text-muted">—</span>
+                              )}
+                            </td>
+                          </>
+                        );
+                      })()}
+                      <td className="px-3 py-2 text-center">
                         {editando ? (
                           <div className="flex items-center justify-center gap-2">
                             <button
@@ -281,31 +451,73 @@ const Planillas: React.FC = () => {
       <Card title="Planilla CAJA">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-border">
-            <thead className="bg-card-hover">
+            <thead>
+              {/* Group header row */}
               <tr>
-                <th className="sticky left-0 z-10 bg-card-hover px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase">Fecha</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-text-secondary uppercase">Arancel</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-text-secondary uppercase">SUAT Sell.</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-text-secondary uppercase">SUCERP Sell.</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-text-secondary uppercase">Consultas</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-text-secondary uppercase">Formularios</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-text-secondary uppercase">POSNET</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-text-secondary uppercase">VEP</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-text-secondary uppercase">ePagos</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-text-secondary uppercase">Total</th>
-                <th className="px-4 py-3 text-center text-xs font-medium text-text-secondary uppercase">Acciones</th>
+                <th
+                  rowSpan={2}
+                  className="sticky left-0 z-10 bg-card-hover px-3 py-2 text-left text-xs font-medium text-text-secondary uppercase border-b border-border"
+                >
+                  Fecha
+                </th>
+                {CAJA_GROUPS.map((group) => (
+                  <th
+                    key={group.label}
+                    colSpan={group.cols.length}
+                    className={`px-2 py-1.5 text-center text-xs font-semibold uppercase border-b border-l border-border ${group.headerCls}`}
+                  >
+                    {group.label}
+                  </th>
+                ))}
+                <th
+                  rowSpan={2}
+                  className="bg-card-hover px-3 py-2 text-right text-xs font-medium text-text-secondary uppercase border-b border-l border-border"
+                >
+                  Total
+                </th>
+                <th
+                  rowSpan={2}
+                  className="bg-blue-500/10 text-blue-700 px-3 py-2 text-right text-xs font-semibold uppercase border-b border-l border-border"
+                >
+                  Entregado
+                </th>
+                <th
+                  rowSpan={2}
+                  className="bg-card-hover px-3 py-2 text-right text-xs font-medium text-text-secondary uppercase border-b border-l border-border"
+                >
+                  Dif.
+                </th>
+                <th
+                  rowSpan={2}
+                  className="bg-card-hover px-3 py-2 text-center text-xs font-medium text-text-secondary uppercase border-b border-l border-border"
+                >
+                  Acciones
+                </th>
+              </tr>
+              {/* Column names row */}
+              <tr className="bg-card-hover">
+                {CAJA_ALL_COLS.map((col) => (
+                  <th
+                    key={col.key as string}
+                    className={`px-2 py-2 text-right text-[11px] font-medium text-text-secondary uppercase whitespace-nowrap${
+                      CAJA_GROUPS.some((g) => g.cols[0]?.key === col.key) ? ' border-l border-border' : ''
+                    }`}
+                  >
+                    {col.label}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {cajaLoading ? (
                 <tr>
-                  <td colSpan={11} className="px-4 py-8 text-center text-text-muted">
+                  <td colSpan={CAJA_COL_COUNT} className="px-4 py-8 text-center text-text-muted">
                     Cargando...
                   </td>
                 </tr>
               ) : caja.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="px-4 py-8 text-center text-text-muted">
+                  <td colSpan={CAJA_COL_COUNT} className="px-4 py-8 text-center text-text-muted">
                     No hay datos
                   </td>
                 </tr>
@@ -316,33 +528,59 @@ const Planillas: React.FC = () => {
 
                   return (
                     <tr key={dia.fecha} className={editando ? 'bg-primary/5' : ''}>
-                      <td className="sticky left-0 z-10 bg-card px-4 py-3 text-sm font-medium">
+                      <td className="sticky left-0 z-10 bg-card px-3 py-2 text-sm font-medium whitespace-nowrap">
                         {formatDate(dia.fecha)}
                       </td>
-                      {(['ARANCEL', 'SUAT_SELLADO', 'SUCERP_SELLADO', 'CONSULTAS', 'FORMULARIOS', 'POSNET', 'VEP', 'EPAGOS'] as const).map((campo) => (
-                        <td key={campo} className="px-4 py-3 text-sm text-right">
+                      {CAJA_ALL_COLS.map(({ key }) => (
+                        <td key={key as string} className="px-2 py-2 text-right">
                           {editando ? (
                             <input
                               type="number"
                               step="0.01"
-                              value={valores[campo]}
+                              value={valores[key] as number}
                               onChange={(e) =>
                                 setValoresEditCaja({
                                   ...valoresEditCaja!,
-                                  [campo]: parseFloat(e.target.value) || 0,
+                                  [key]: parseFloat(e.target.value) || 0,
                                 })
                               }
-                              className="w-28 text-right rounded border border-border px-2 py-1 font-mono text-xs"
+                              className="w-20 text-right rounded border border-border px-1.5 py-1 font-mono text-xs"
                             />
                           ) : (
-                            <span className="font-mono">{formatCurrency(valores[campo])}</span>
+                            <span className="font-mono text-xs">
+                              {formatCurrency(valores[key] as number)}
+                            </span>
                           )}
                         </td>
                       ))}
-                      <td className="px-4 py-3 text-sm text-right font-bold">
-                        {formatCurrency(calcularTotalCaja(valores))}
-                      </td>
-                      <td className="px-4 py-3 text-center">
+                      {(() => {
+                        const total = calcularTotalCaja(valores);
+                        const dif = valores.EFECTIVO - total;
+                        return (
+                          <>
+                            <td className="px-3 py-2 text-right font-bold whitespace-nowrap">
+                              <span className="font-mono text-sm">{formatCurrency(total)}</span>
+                            </td>
+                            <td className="px-3 py-2 text-right whitespace-nowrap bg-blue-500/5">
+                              <span className="font-mono text-sm font-semibold text-blue-700">
+                                {valores.EFECTIVO > 0 ? formatCurrency(valores.EFECTIVO) : '—'}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 text-right whitespace-nowrap">
+                              {valores.EFECTIVO > 0 ? (
+                                <span className={`font-mono text-xs font-semibold ${
+                                  dif === 0 ? 'text-success' : 'text-error'
+                                }`}>
+                                  {dif === 0 ? '$0' : (dif > 0 ? '+' : '') + formatCurrency(dif)}
+                                </span>
+                              ) : (
+                                <span className="text-text-muted">—</span>
+                              )}
+                            </td>
+                          </>
+                        );
+                      })()}
+                      <td className="px-3 py-2 text-center">
                         {editando ? (
                           <div className="flex items-center justify-center gap-2">
                             <button
