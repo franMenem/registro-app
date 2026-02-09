@@ -388,4 +388,60 @@ Cuando se sincroniza un depósito a una cuenta corriente:
 
 ---
 
-**Última actualización:** 2026-02-04 - Bug fix formularios checkbox + eliminado tab Historial
+---
+
+## 🚨 REGLAS CRÍTICAS - Funciones Postgres procesar_*_diario (2026-02-09)
+
+### NUNCA reescribir sin verificar TODOS los side-effects
+
+`CREATE OR REPLACE FUNCTION` **pierde todo el contenido anterior**. El commit `9126b3a` introdujo 10 regresiones al reescribir estas funciones sin conservar fixes previos. Esto NO debe volver a pasar.
+
+### procesar_caja_diario DEBE hacer:
+
+| # | Side-effect | Tabla destino |
+|---|------------|---------------|
+| 1 | INSERT movimientos (conceptos dinámicos via column_key) | `movimientos` |
+| 2 | INSERT control_veps y control_epagos (VEP/EPAGOS) | `control_veps`, `control_epagos` |
+| 3 | INSERT gastos_deposito (DEPOSITO_1..12 con paréntesis correctos) | `gastos_deposito` |
+| 4 | crear_movimiento_cc() para cuentas corrientes | `movimientos_cc` |
+| 5 | INSERT gastos_registrales (12 items: LIBRERIA, AGUA, EDESUR, ACARA, CARGAS_SOCIALES, OTROS, SUPERMERCADO, SEC, OSECAC, MARIA, REPO_CAJA_CHICA, REPO_RENTAS_CHICA) | `gastos_registrales` |
+| 6 | INSERT gastos_personales (TERE con concepto='Tere', estado='Pagado') | `gastos_personales` |
+| 7 | INSERT adelantos_empleados (SOLO DAMI, MUMI - NO Maria, NO Tere) | `adelantos_empleados` |
+| 8 | upsert_control_posnet() para POSNET CAJA | `control_posnet_diario` |
+| 9 | crear_movimiento_cc('Gastos Formularios', ...) para Formularios | `movimientos_cc` |
+| 10 | INSERT movimientos_efectivo (efectivo entregado) | `movimientos_efectivo` |
+
+### procesar_rentas_diario DEBE hacer:
+
+| # | Side-effect | Tabla destino |
+|---|------------|---------------|
+| 1 | INSERT movimientos (conceptos dinámicos via column_key) | `movimientos` |
+| 2 | INSERT gastos_deposito (DEPOSITO_1..12) | `gastos_deposito` |
+| 3 | crear_movimiento_cc() para cuentas corrientes (ICBC inline + resto en loop) | `movimientos_cc` |
+| 4 | upsert_control_posnet() para POSNET | `control_posnet_diario` |
+| 5 | INSERT movimientos_efectivo | `movimientos_efectivo` |
+
+### Errores comunes a evitar:
+
+1. **Paréntesis en depósitos**: `p_values->>('DEPOSITO_' || v_i)` (CON paréntesis). Sin ellos concatena al resultado, no al key.
+2. **MARIA va a gastos_registrales**, NO a adelantos_empleados.
+3. **TERE va a gastos_personales**, NO a adelantos_empleados.
+4. **VEP/EPAGOS son items estáticos del UI**, NO conceptos de la tabla. Si se insertan en `conceptos` con tipo CAJA/RENTAS, aparecen como inputs duplicados.
+5. **Triggers automáticos**: `trg_sync_controles` en `movimientos` sincroniza controles semanales/quincenales. NO llamar manualmente a `upsert_control_semanal/quincenal` (doble conteo).
+6. **gastos_deposito cleanup**: Antes de insertar depósitos, hacer `DELETE FROM gastos_deposito WHERE fecha = p_fecha AND tipo = 'CAJA'/'RENTAS'` para re-submissions.
+
+### Mapeos en planillas.ts (lectura):
+
+Los datos se leen de vuelta en `planillas.ts` para mostrar en la página Planillas. Los mapeos deben coincidir con cómo se guardan:
+
+| Dato | Se guarda en | Campo concepto en DB | Key en planilla |
+|------|-------------|---------------------|-----------------|
+| SUPERMERCADO | gastos_registrales | 'Supermercado' | SUPERMERCADO |
+| MARIA | gastos_registrales | 'Maria' | MARIA |
+| TERE | gastos_personales | 'Tere' | TERE |
+| DAMI, MUMI | adelantos_empleados | 'Dami'/'Mumi' | DAMI/MUMI |
+| DEPOSITO_N | gastos_deposito | numero_deposito=N | DEPOSITO_N |
+
+---
+
+**Última actualización:** 2026-02-09 - Fix regresiones procesar_diario + fix planillas mapeos/columnas

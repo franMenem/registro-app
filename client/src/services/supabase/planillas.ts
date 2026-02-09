@@ -4,9 +4,6 @@
 import { supabase } from '@/lib/supabase';
 import { parseDateFromDB } from '@/utils/format';
 
-// CUIT placeholder para movimientos generados desde planillas (no asociados a un cliente)
-const CUIT_PLANILLA = '00000000000';
-
 // ============================================================================
 // Types
 // ============================================================================
@@ -48,14 +45,26 @@ const GASTOS_REG_MAP: Record<string, string> = {
   'Libreria': 'LIBRERIA',
   'Agua': 'AGUA',
   'Edesur': 'EDESUR',
+  'Acara': 'ACARA',
+  'Cargas Sociales': 'CARGAS_SOCIALES',
+  'Otros': 'OTROS',
+  'Supermercado': 'SUPERMERCADO',
+  'Sec': 'SEC',
+  'Osecac': 'OSECAC',
+  'Maria': 'MARIA',
+  'Repo Caja Chica': 'REPO_CAJA_CHICA',
+  'Repo Rentas Chica': 'REPO_RENTAS_CHICA',
 };
 
-/** Adelantos empleados (only in CAJA) */
+/** Adelantos empleados (only in CAJA) - solo DAMI y MUMI */
 const ADELANTOS_MAP: Record<string, string> = {
-  'Maria': 'MARIA',
-  'Tere': 'TERE',
   'Dami': 'DAMI',
   'Mumi': 'MUMI',
+};
+
+/** Gastos personales (only in CAJA) - TERE va acá, no a adelantos */
+const GASTOS_PERSONALES_MAP: Record<string, string> = {
+  'Tere': 'TERE',
 };
 
 // ============================================================================
@@ -125,11 +134,13 @@ function getOrCreate(
 
 /** Build full set of column keys for a planilla tipo */
 function buildAllKeys(conceptoKeys: string[], tipo: 'RENTAS' | 'CAJA'): string[] {
-  const keys = [...conceptoKeys, ...CC_KEYS, 'DEPOSITOS', 'EFECTIVO'];
+  const depositKeys = Array.from({ length: 12 }, (_, i) => `DEPOSITO_${i + 1}`);
+  const keys = [...conceptoKeys, ...CC_KEYS, 'DEPOSITOS', ...depositKeys, 'EFECTIVO'];
   if (tipo === 'CAJA') {
     keys.push('VEP', 'EPAGOS');
     keys.push(...Object.values(GASTOS_REG_MAP));
     keys.push(...Object.values(ADELANTOS_MAP));
+    keys.push(...Object.values(GASTOS_PERSONALES_MAP));
   }
   return keys;
 }
@@ -173,7 +184,16 @@ export const planillasApi = {
     if (filters.fechaDesde) efectivoQuery = efectivoQuery.gte('fecha', filters.fechaDesde);
     if (filters.fechaHasta) efectivoQuery = efectivoQuery.lte('fecha', filters.fechaHasta);
 
-    const [movResult, ccResult, efectivoResult] = await Promise.all([movQuery, ccQuery, efectivoQuery]);
+    // 4. Gastos deposito (individual deposits DEPOSITO_1..12)
+    let depositosQuery = supabase
+      .from('gastos_deposito')
+      .select('fecha, numero_deposito, monto')
+      .eq('tipo', 'RENTAS');
+
+    if (filters.fechaDesde) depositosQuery = depositosQuery.gte('fecha', filters.fechaDesde);
+    if (filters.fechaHasta) depositosQuery = depositosQuery.lte('fecha', filters.fechaHasta);
+
+    const [movResult, ccResult, efectivoResult, depositosResult] = await Promise.all([movQuery, ccQuery, efectivoQuery, depositosQuery]);
 
     if (movResult.error) {
       throw new Error(`Error al obtener planilla RENTAS: ${movResult.error.message}`);
@@ -213,6 +233,16 @@ export const planillasApi = {
       for (const e of efectivoResult.data || []) {
         const dia = getOrCreate(byFecha, e.fecha, allKeys);
         dia.EFECTIVO = (dia.EFECTIVO || 0) + Number(e.monto || 0);
+      }
+    }
+
+    // Process gastos deposito (individual deposits)
+    if (!depositosResult.error) {
+      for (const d of depositosResult.data || []) {
+        const dia = getOrCreate(byFecha, d.fecha, allKeys);
+        const depKey = `DEPOSITO_${d.numero_deposito}`;
+        dia[depKey] = (dia[depKey] || 0) + Number(d.monto || 0);
+        dia.DEPOSITOS = (dia.DEPOSITOS || 0) + Number(d.monto || 0);
       }
     }
 
@@ -293,8 +323,25 @@ export const planillasApi = {
       'fecha'
     );
 
-    const [movResult, ccResult, vepResult, epagoResult, gastosResult, adelantosResult, efectivoResult] =
-      await Promise.all([movQuery, ccQuery, vepQuery, epagoQuery, gastosQuery, adelantosQuery, efectivoQuery]);
+    // 8. Gastos deposito (individual deposits DEPOSITO_1..12)
+    const depositosQuery = addDateFilters(
+      supabase
+        .from('gastos_deposito')
+        .select('fecha, numero_deposito, monto')
+        .eq('tipo', 'CAJA'),
+      'fecha'
+    );
+
+    // 9. Gastos personales (TERE)
+    const gastosPersonalesQuery = addDateFilters(
+      supabase
+        .from('gastos_personales')
+        .select('fecha, concepto, monto'),
+      'fecha'
+    );
+
+    const [movResult, ccResult, vepResult, epagoResult, gastosResult, adelantosResult, efectivoResult, depositosResult, gastosPersonalesResult] =
+      await Promise.all([movQuery, ccQuery, vepQuery, epagoQuery, gastosQuery, adelantosQuery, efectivoQuery, depositosQuery, gastosPersonalesQuery]);
 
     if (movResult.error) {
       throw new Error(`Error al obtener planilla CAJA: ${movResult.error.message}`);
@@ -372,155 +419,77 @@ export const planillasApi = {
       }
     }
 
+    // Process gastos deposito (individual deposits)
+    if (!depositosResult.error) {
+      for (const d of depositosResult.data || []) {
+        const dia = getOrCreate(byFecha, d.fecha, allKeys);
+        const depKey = `DEPOSITO_${d.numero_deposito}`;
+        dia[depKey] = (dia[depKey] || 0) + Number(d.monto || 0);
+        dia.DEPOSITOS = (dia.DEPOSITOS || 0) + Number(d.monto || 0);
+      }
+    }
+
+    // Process gastos personales (TERE)
+    if (!gastosPersonalesResult.error) {
+      for (const g of gastosPersonalesResult.data || []) {
+        const dia = getOrCreate(byFecha, g.fecha, allKeys);
+        const key = GASTOS_PERSONALES_MAP[g.concepto];
+        if (key) {
+          dia[key] = (dia[key] || 0) + Number(g.monto || 0);
+        }
+      }
+    }
+
     return Array.from(byFecha.values()).sort(
       (a, b) => parseDateFromDB(b.fecha).getTime() - parseDateFromDB(a.fecha).getTime()
     );
   },
 
-  /** Update RENTAS values for a specific date (concepto-based fields only) */
+  /** Update RENTAS values for a specific date via idempotent RPC (DELETE + re-INSERT) */
   updateRentas: async (fecha: string, valores: PlanillaRow): Promise<UpdateResult> => {
-    const alertas: string[] = [];
-    const mapping = await buildConceptoMappings('RENTAS');
-
-    // Get existing movimientos for this date
-    const { data: existingMovs, error: fetchError } = await supabase
-      .from('movimientos')
-      .select('id, monto, conceptos(nombre)')
-      .eq('tipo', 'RENTAS')
-      .eq('fecha', fecha);
-
-    if (fetchError) {
-      throw new Error(`Error al obtener movimientos: ${fetchError.message}`);
+    const p_values: Record<string, number> = {};
+    for (const [key, value] of Object.entries(valores)) {
+      if (key === 'fecha' || key === 'EFECTIVO' || key === 'DEPOSITOS') continue;
+      p_values[key] = typeof value === 'number' ? value : 0;
     }
+    const p_entregado = typeof valores.EFECTIVO === 'number' ? valores.EFECTIVO : 0;
 
-    const existingByConcepto = new Map<string, { id: number; monto: number }>();
-    for (const mov of existingMovs || []) {
-      const nombre = getConceptoNombre(mov.conceptos);
-      if (nombre) {
-        existingByConcepto.set(nombre, { id: mov.id, monto: mov.monto });
-      }
-    }
+    const { data, error } = await supabase.rpc('procesar_rentas_diario', {
+      p_fecha: fecha,
+      p_values: p_values,
+      p_entregado: p_entregado,
+    });
 
-    const operations: Promise<string | null>[] = [];
+    if (error) throw new Error(`Error actualizando RENTAS: ${error.message}`);
 
-    for (const [columnKey, concepto] of Object.entries(mapping.keyToName)) {
-      const nuevoMonto = valores[columnKey] as number;
-      const existing = existingByConcepto.get(concepto);
-
-      if (existing) {
-        if (existing.monto !== nuevoMonto) {
-          operations.push(
-            (async () => {
-              const { error } = await supabase
-                .from('movimientos')
-                .update({ monto: nuevoMonto })
-                .eq('id', existing.id);
-              if (error) throw new Error(`Error actualizando ${concepto}: ${error.message}`);
-              return `${concepto}: ${existing.monto} → ${nuevoMonto}`;
-            })()
-          );
-        }
-      } else if (nuevoMonto > 0) {
-        const conceptoId = mapping.nameToId[concepto];
-        if (!conceptoId) {
-          alertas.push(`Concepto "${concepto}" no encontrado en tabla conceptos`);
-          continue;
-        }
-        operations.push(
-          (async () => {
-            const { error } = await supabase.from('movimientos').insert({
-              fecha,
-              tipo: 'RENTAS',
-              cuit: CUIT_PLANILLA,
-              concepto_id: conceptoId,
-              monto: nuevoMonto,
-            });
-            if (error) throw new Error(`Error insertando ${concepto}: ${error.message}`);
-            return `${concepto}: nuevo → ${nuevoMonto}`;
-          })()
-        );
-      }
-    }
-
-    const results = await Promise.all(operations);
-    alertas.push(...results.filter((r): r is string => r !== null));
-
+    const result = data as { message: string; data: { alertas: string[] } };
     return {
-      message: `Planilla RENTAS actualizada para ${fecha}`,
-      alertas: alertas.length > 0 ? alertas : undefined,
+      message: result.message,
+      alertas: result.data.alertas?.length > 0 ? result.data.alertas : undefined,
     };
   },
 
-  /** Update CAJA values for a specific date (concepto-based fields only) */
+  /** Update CAJA values for a specific date via idempotent RPC (DELETE + re-INSERT) */
   updateCaja: async (fecha: string, valores: PlanillaRow): Promise<UpdateResult> => {
-    const alertas: string[] = [];
-    const mapping = await buildConceptoMappings('CAJA');
-
-    const { data: existingMovs, error: fetchError } = await supabase
-      .from('movimientos')
-      .select('id, monto, conceptos(nombre)')
-      .eq('tipo', 'CAJA')
-      .eq('fecha', fecha);
-
-    if (fetchError) {
-      throw new Error(`Error al obtener movimientos: ${fetchError.message}`);
+    const p_values: Record<string, number> = {};
+    for (const [key, value] of Object.entries(valores)) {
+      if (key === 'fecha' || key === 'EFECTIVO' || key === 'DEPOSITOS') continue;
+      p_values[key] = typeof value === 'number' ? value : 0;
     }
+    const p_entregado = typeof valores.EFECTIVO === 'number' ? valores.EFECTIVO : 0;
 
-    const existingByConcepto = new Map<string, { id: number; monto: number }>();
-    for (const mov of existingMovs || []) {
-      const nombre = getConceptoNombre(mov.conceptos);
-      if (nombre) {
-        existingByConcepto.set(nombre, { id: mov.id, monto: mov.monto });
-      }
-    }
+    const { data, error } = await supabase.rpc('procesar_caja_diario', {
+      p_fecha: fecha,
+      p_values: p_values,
+      p_entregado: p_entregado,
+    });
 
-    const operations: Promise<string | null>[] = [];
+    if (error) throw new Error(`Error actualizando CAJA: ${error.message}`);
 
-    for (const [columnKey, concepto] of Object.entries(mapping.keyToName)) {
-      const nuevoMonto = valores[columnKey] as number;
-      const existing = existingByConcepto.get(concepto);
-
-      if (existing) {
-        if (existing.monto !== nuevoMonto) {
-          operations.push(
-            (async () => {
-              const { error } = await supabase
-                .from('movimientos')
-                .update({ monto: nuevoMonto })
-                .eq('id', existing.id);
-              if (error) throw new Error(`Error actualizando ${concepto}: ${error.message}`);
-              return `${concepto}: ${existing.monto} → ${nuevoMonto}`;
-            })()
-          );
-        }
-      } else if (nuevoMonto > 0) {
-        const conceptoId = mapping.nameToId[concepto];
-        if (!conceptoId) {
-          alertas.push(`Concepto "${concepto}" no encontrado en tabla conceptos`);
-          continue;
-        }
-        operations.push(
-          (async () => {
-            const { error } = await supabase.from('movimientos').insert({
-              fecha,
-              tipo: 'CAJA',
-              cuit: CUIT_PLANILLA,
-              concepto_id: conceptoId,
-              monto: nuevoMonto,
-            });
-            if (error) throw new Error(`Error insertando ${concepto}: ${error.message}`);
-            return `${concepto}: nuevo → ${nuevoMonto}`;
-          })()
-        );
-      }
-    }
-
-    const results = await Promise.all(operations);
-    alertas.push(...results.filter((r): r is string => r !== null));
-
+    const result = data as { message: string; data: { alertas: string[] } };
     return {
-      message: `Planilla CAJA actualizada para ${fecha}`,
-      alertas: alertas.length > 0 ? alertas : undefined,
+      message: result.message,
+      alertas: result.data.alertas?.length > 0 ? result.data.alertas : undefined,
     };
   },
 };

@@ -32,15 +32,23 @@ const CC_COLS: ColDef[] = [
   { key: 'ALRA', label: 'ALRA' },
 ];
 
-// Static columns: Otros gastos CAJA
+// Static columns: Otros gastos CAJA (same order as FormularioCaja OTROS_GASTOS)
 const OTROS_GASTOS_COLS: ColDef[] = [
   { key: 'LIBRERIA', label: 'Libreria' },
   { key: 'MARIA', label: 'Maria' },
-  { key: 'AGUA', label: 'Agua' },
-  { key: 'EDESUR', label: 'Edesur' },
   { key: 'TERE', label: 'Tere' },
   { key: 'DAMI', label: 'Dami' },
   { key: 'MUMI', label: 'Mumi' },
+  { key: 'AGUA', label: 'Agua' },
+  { key: 'CARGAS_SOCIALES', label: 'Cargas Soc.' },
+  { key: 'EDESUR', label: 'Edesur' },
+  { key: 'ACARA', label: 'Acara' },
+  { key: 'SUPERMERCADO', label: 'Supermercado' },
+  { key: 'SEC', label: 'SEC' },
+  { key: 'OSECAC', label: 'OSECAC' },
+  { key: 'OTROS', label: 'Otros' },
+  { key: 'REPO_CAJA_CHICA', label: 'Rep.Caja Ch.' },
+  { key: 'REPO_RENTAS_CHICA', label: 'Rep.Rentas Ch.' },
 ];
 
 // Concepto column_keys that "restan" instead of "suman"
@@ -63,12 +71,18 @@ function buildGroups(conceptos: Concepto[], tipo: 'RENTAS' | 'CAJA'): ColGroup[]
     ...(tipo === 'CAJA'
       ? [{ key: 'VEP', label: 'VEP' }, { key: 'EPAGOS', label: 'ePagos' }]
       : []),
-    { key: 'DEPOSITOS', label: 'Depositos' },
   ];
+
+  const depositCols: ColDef[] = Array.from({ length: 12 }, (_, i) => ({
+    key: `DEPOSITO_${i + 1}`,
+    label: `Dep.${i + 1}`,
+  }));
+  depositCols.push({ key: 'DEPOSITOS', label: 'Total Dep.' });
 
   const groups: ColGroup[] = [
     { label: 'Ingresos (+)', headerCls: 'bg-emerald-500/10 text-emerald-700', cols: ingresosCols },
     { label: 'Restan (-)', headerCls: 'bg-amber-500/10 text-amber-700', cols: restanCols },
+    { label: 'Depositos (-)', headerCls: 'bg-purple-500/10 text-purple-700', cols: depositCols },
   ];
 
   if (tipo === 'CAJA') {
@@ -88,12 +102,17 @@ function buildGroups(conceptos: Concepto[], tipo: 'RENTAS' | 'CAJA'): ColGroup[]
   return groups;
 }
 
-/** Calculate total for a planilla row given its column groups */
+/** Calculate total for a planilla row given its column groups.
+ *  DEPOSITOS is a computed summary (sum of DEPOSITO_1..12), so we skip it
+ *  to avoid double-counting. */
 function calcularTotal(row: PlanillaRow, groups: ColGroup[]): number {
   let total = 0;
   for (const group of groups) {
     const isPositive = group.label.includes('(+)');
-    const groupSum = group.cols.reduce((sum, col) => sum + (Number(row[col.key]) || 0), 0);
+    const groupSum = group.cols.reduce(
+      (sum, col) => col.key === 'DEPOSITOS' ? sum : sum + (Number(row[col.key]) || 0),
+      0,
+    );
     total += isPositive ? groupSum : -groupSum;
   }
   return total;
@@ -220,7 +239,7 @@ const PlanillaTable: React.FC<PlanillaTableProps> = ({
                     </td>
                     {allCols.map(({ key }) => (
                       <td key={key} className="px-2 py-2 text-right">
-                        {editando ? (
+                        {editando && key !== 'DEPOSITOS' ? (
                           <input
                             type="number"
                             step="0.01"

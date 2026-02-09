@@ -24,7 +24,7 @@ export const conceptosApi = {
       query = query.eq('tipo', tipo);
     }
 
-    query = query.order('nombre');
+    query = query.order('sort_order').order('id');
 
     const { data, error } = await query;
 
