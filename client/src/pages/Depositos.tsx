@@ -359,7 +359,7 @@ const Depositos: React.FC = () => {
       });
     }
 
-    if (row.estado === 'PENDIENTE' && !row.cuenta_id) {
+    if (row.estado === 'PENDIENTE' || row.estado === 'A_CUENTA') {
       items.push({
         label: 'Liquidar',
         icon: CheckCircle,
@@ -424,7 +424,7 @@ const Depositos: React.FC = () => {
       case 'titular':
         return (
           <span className="text-sm font-medium">
-            {row.cliente_nombre || row.titular}
+            {row.cuenta_nombre || row.cliente_nombre || row.titular}
           </span>
         );
       case 'monto_original':
@@ -887,11 +887,11 @@ const Depositos: React.FC = () => {
         </Card>
       )}
 
-      {/* Depósitos No Asociados — tabla compacta */}
+      {/* Depósitos No Asociados — tabla compacta con botón Asociar */}
       {depositosNoAsociados.length > 0 && (
         <Card
-          title="Depósitos sin asignar a cuenta"
-          subtitle={`${depositosNoAsociados.length} depósito${depositosNoAsociados.length > 1 ? 's' : ''}`}
+          title="Depósitos sin asignar"
+          subtitle={`${depositosNoAsociados.length} depósito${depositosNoAsociados.length > 1 ? 's' : ''} sin cuenta ni cliente`}
         >
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -902,7 +902,7 @@ const Depositos: React.FC = () => {
                   <th className="text-right text-xs font-medium text-text-secondary uppercase px-3 py-2">Monto</th>
                   <th className="text-right text-xs font-medium text-text-secondary uppercase px-3 py-2">Saldo</th>
                   <th className="text-left text-xs font-medium text-text-secondary uppercase px-3 py-2">Estado</th>
-                  <th className="text-center text-xs font-medium text-text-secondary uppercase px-3 py-2 w-20"></th>
+                  <th className="text-center text-xs font-medium text-text-secondary uppercase px-3 py-2 w-28"></th>
                 </tr>
               </thead>
               <tbody>
@@ -915,13 +915,14 @@ const Depositos: React.FC = () => {
                     <td className="px-3 py-2"><EstadoBadge estado={dep.estado} /></td>
                     <td className="px-3 py-2 text-center">
                       <div className="flex items-center gap-1 justify-center">
-                        <button
-                          onClick={() => handleEdit(dep)}
-                          className="p-1 rounded hover:bg-background-secondary text-text-secondary"
-                          title="Editar"
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          icon={Link}
+                          onClick={() => handleAsociarCuenta(dep.id)}
                         >
-                          <Edit className="h-4 w-4" />
-                        </button>
+                          Asociar
+                        </Button>
                         <ActionMenu items={getActionItems(dep)} />
                       </div>
                     </td>
@@ -1029,7 +1030,7 @@ const Depositos: React.FC = () => {
           loading={isLoading}
           emptyMessage="No hay depósitos registrados"
           renderCell={renderCell}
-          isRowClickable={(row) => row.estado === 'PENDIENTE' || row.estado === 'A_FAVOR'}
+          isRowClickable={(row) => row.estado === 'PENDIENTE' || row.estado === 'A_FAVOR' || row.estado === 'A_CUENTA'}
           onRowClick={(row) => handleEdit(row)}
         />
 

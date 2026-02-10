@@ -145,6 +145,7 @@ export const depositosApi = {
       .from('depositos')
       .select('*')
       .is('cuenta_id', null)
+      .is('cliente_id', null)
       .in('estado', ['PENDIENTE', 'A_FAVOR'])
       .order('fecha_ingreso', { ascending: false });
 
@@ -353,12 +354,13 @@ export const depositosApi = {
 
     if (movError) throw new Error(movError.message);
 
-    // Actualizar depósito con cuenta_id y movimiento_origen_id
+    // Actualizar depósito con cuenta_id, movimiento_origen_id y estado A_CUENTA
     const { error } = await supabase
       .from('depositos')
       .update({
         cuenta_id: cuentaId,
         movimiento_origen_id: movimiento.id,
+        estado: 'A_CUENTA',
       })
       .eq('id', id);
 
@@ -387,10 +389,10 @@ export const depositosApi = {
       if (delError) throw new Error(delError.message);
     }
 
-    // Limpiar cuenta_id y movimiento_origen_id del depósito
+    // Limpiar cuenta_id y movimiento_origen_id del depósito, revertir estado a PENDIENTE
     const { error } = await supabase
       .from('depositos')
-      .update({ cuenta_id: null, movimiento_origen_id: null })
+      .update({ cuenta_id: null, movimiento_origen_id: null, estado: 'PENDIENTE' })
       .eq('id', id);
 
     if (error) throw new Error(error.message);
