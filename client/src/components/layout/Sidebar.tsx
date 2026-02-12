@@ -121,7 +121,7 @@ export const Sidebar: React.FC = () => {
         </div>
       </div>
 
-      <nav className="flex-1 px-3 py-6 space-y-1">
+      <nav className="flex-1 overflow-y-auto px-3 py-6 space-y-1">
         {navItems.map((item) => {
           const isActive = location.pathname === item.path;
           return (
