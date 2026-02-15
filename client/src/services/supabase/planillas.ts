@@ -492,4 +492,39 @@ export const planillasApi = {
       alertas: result.data.alertas?.length > 0 ? result.data.alertas : undefined,
     };
   },
+
+  /** Check if a date already has data for a given planilla type */
+  verificarFechaExiste: async (fecha: string, tipo: 'RENTAS' | 'CAJA'): Promise<boolean> => {
+    const { data, error } = await supabase.rpc('verificar_fecha_planilla', {
+      p_fecha: fecha,
+      p_tipo: tipo,
+    });
+    if (error) throw new Error(`Error verificando fecha: ${error.message}`);
+    return data as boolean;
+  },
+
+  /** Move a planilla from one date to another: cleanup old date → insert at new date */
+  cambiarFecha: async (
+    fechaOriginal: string,
+    fechaNueva: string,
+    tipo: 'RENTAS' | 'CAJA',
+    valores: PlanillaRow,
+  ): Promise<UpdateResult> => {
+    const existe = await planillasApi.verificarFechaExiste(fechaNueva, tipo);
+    if (existe) {
+      throw new Error(`Ya existen datos de ${tipo} para la fecha ${fechaNueva}. Eliminalos primero.`);
+    }
+
+    const { error: cleanupError } = await supabase.rpc('limpiar_planilla_fecha', {
+      p_fecha: fechaOriginal,
+      p_tipo: tipo,
+    });
+    if (cleanupError) {
+      throw new Error(`Error limpiando fecha original: ${cleanupError.message}`);
+    }
+
+    return tipo === 'RENTAS'
+      ? planillasApi.updateRentas(fechaNueva, valores)
+      : planillasApi.updateCaja(fechaNueva, valores);
+  },
 };

@@ -134,6 +134,7 @@ interface PlanillaTableProps {
   onSave: () => void;
   onCancel: () => void;
   onChangeValue: (key: string, value: number) => void;
+  onChangeFecha: (fecha: string) => void;
   saving: boolean;
 }
 
@@ -148,6 +149,7 @@ const PlanillaTable: React.FC<PlanillaTableProps> = ({
   onSave,
   onCancel,
   onChangeValue,
+  onChangeFecha,
   saving,
 }) => {
   const allCols = useMemo(() => groups.flatMap((g) => g.cols), [groups]);
@@ -235,7 +237,16 @@ const PlanillaTable: React.FC<PlanillaTableProps> = ({
                 return (
                   <tr key={dia.fecha} className={editando ? 'bg-primary/5' : ''}>
                     <td className="sticky left-0 z-10 bg-card px-3 py-2 text-sm font-medium whitespace-nowrap">
-                      {formatDate(dia.fecha)}
+                      {editando ? (
+                        <input
+                          type="date"
+                          value={valores.fecha}
+                          onChange={(e) => onChangeFecha(e.target.value)}
+                          className="rounded border border-border px-2 py-1 text-sm"
+                        />
+                      ) : (
+                        formatDate(dia.fecha)
+                      )}
                     </td>
                     {allCols.map(({ key }) => (
                       <td key={key} className="px-2 py-2 text-right">
@@ -402,6 +413,42 @@ const Planillas: React.FC = () => {
     },
   });
 
+  const cambiarFechaRentasMutation = useMutation({
+    mutationFn: ({ fechaOriginal, fechaNueva, valores }: { fechaOriginal: string; fechaNueva: string; valores: PlanillaRow }) =>
+      planillasApi.cambiarFecha(fechaOriginal, fechaNueva, 'RENTAS', valores),
+    onSuccess: (data) => {
+      showToast.success(data.message);
+      data.alertas?.forEach((alerta: string) => showToast.success(alerta));
+      setEditandoRentasFecha(null);
+      setValoresEditRentas(null);
+      queryClient.invalidateQueries({ queryKey: ['planillas-rentas'] });
+      queryClient.invalidateQueries({ queryKey: ['controles-semanales'] });
+      queryClient.invalidateQueries({ queryKey: ['controles-quincenales'] });
+    },
+    onError: (error: Error) => {
+      showToast.error(error.message || 'Error al cambiar fecha');
+    },
+  });
+
+  const cambiarFechaCajaMutation = useMutation({
+    mutationFn: ({ fechaOriginal, fechaNueva, valores }: { fechaOriginal: string; fechaNueva: string; valores: PlanillaRow }) =>
+      planillasApi.cambiarFecha(fechaOriginal, fechaNueva, 'CAJA', valores),
+    onSuccess: (data) => {
+      showToast.success(data.message);
+      data.alertas?.forEach((alerta: string) => showToast.success(alerta));
+      setEditandoCajaFecha(null);
+      setValoresEditCaja(null);
+      queryClient.invalidateQueries({ queryKey: ['planillas-caja'] });
+      queryClient.invalidateQueries({ queryKey: ['controles-semanales'] });
+      queryClient.invalidateQueries({ queryKey: ['gastos-registrales'] });
+      queryClient.invalidateQueries({ queryKey: ['veps'] });
+      queryClient.invalidateQueries({ queryKey: ['epagos'] });
+    },
+    onError: (error: Error) => {
+      showToast.error(error.message || 'Error al cambiar fecha');
+    },
+  });
+
   const rentas: PlanillaRow[] = rentasData || [];
   const caja: PlanillaRow[] = cajaData || [];
 
@@ -463,7 +510,15 @@ const Planillas: React.FC = () => {
         }}
         onSave={() => {
           if (editandoRentasFecha && valoresEditRentas) {
-            updateRentasMutation.mutate({ fecha: editandoRentasFecha, valores: valoresEditRentas });
+            if (valoresEditRentas.fecha !== editandoRentasFecha) {
+              cambiarFechaRentasMutation.mutate({
+                fechaOriginal: editandoRentasFecha,
+                fechaNueva: valoresEditRentas.fecha,
+                valores: valoresEditRentas,
+              });
+            } else {
+              updateRentasMutation.mutate({ fecha: editandoRentasFecha, valores: valoresEditRentas });
+            }
           }
         }}
         onCancel={() => {
@@ -473,7 +528,10 @@ const Planillas: React.FC = () => {
         onChangeValue={(key, value) =>
           setValoresEditRentas((prev) => (prev ? { ...prev, [key]: value } : prev))
         }
-        saving={updateRentasMutation.isPending}
+        onChangeFecha={(fecha) =>
+          setValoresEditRentas((prev) => (prev ? { ...prev, fecha } as PlanillaRow : prev))
+        }
+        saving={updateRentasMutation.isPending || cambiarFechaRentasMutation.isPending}
       />
 
       {/* Tabla CAJA */}
@@ -490,7 +548,15 @@ const Planillas: React.FC = () => {
         }}
         onSave={() => {
           if (editandoCajaFecha && valoresEditCaja) {
-            updateCajaMutation.mutate({ fecha: editandoCajaFecha, valores: valoresEditCaja });
+            if (valoresEditCaja.fecha !== editandoCajaFecha) {
+              cambiarFechaCajaMutation.mutate({
+                fechaOriginal: editandoCajaFecha,
+                fechaNueva: valoresEditCaja.fecha,
+                valores: valoresEditCaja,
+              });
+            } else {
+              updateCajaMutation.mutate({ fecha: editandoCajaFecha, valores: valoresEditCaja });
+            }
           }
         }}
         onCancel={() => {
@@ -500,7 +566,10 @@ const Planillas: React.FC = () => {
         onChangeValue={(key, value) =>
           setValoresEditCaja((prev) => (prev ? { ...prev, [key]: value } : prev))
         }
-        saving={updateCajaMutation.isPending}
+        onChangeFecha={(fecha) =>
+          setValoresEditCaja((prev) => (prev ? { ...prev, fecha } as PlanillaRow : prev))
+        }
+        saving={updateCajaMutation.isPending || cambiarFechaCajaMutation.isPending}
       />
     </div>
   );

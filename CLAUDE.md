@@ -444,4 +444,25 @@ Los datos se leen de vuelta en `planillas.ts` para mostrar en la página Planill
 
 ---
 
-**Última actualización:** 2026-02-09 - Fix regresiones procesar_diario + fix planillas mapeos/columnas
+---
+
+## 🏛️ PRINCIPIOS DE CÓDIGO OBLIGATORIOS
+
+Estos principios se aplican a **TODO** código generado o modificado. No son sugerencias, son reglas.
+
+### SOLID
+- **S - Single Responsibility:** Cada función/componente hace UNA cosa. Si necesitás describir con "y", dividilo.
+- **O - Open/Closed:** Extender comportamiento sin modificar código existente. Usar composición y props.
+- **L - Liskov Substitution:** Los subtipos deben ser intercambiables con sus tipos base.
+- **I - Interface Segregation:** Interfaces/types pequeños y específicos. No forzar dependencias innecesarias.
+- **D - Dependency Inversion:** Depender de abstracciones, no de implementaciones concretas.
+
+### Otros principios obligatorios
+- **DRY:** No duplicar lógica. Extraer funciones reutilizables cuando hay repetición real (no preventiva).
+- **KISS:** La solución más simple que funcione. No sobre-ingeniar.
+- **YAGNI:** No construir para requisitos futuros hipotéticos. Solo lo que se necesita ahora.
+- **Clean Code:** Nombres descriptivos, funciones cortas, sin comentarios obvios, sin código muerto.
+
+---
+
+**Última actualización:** 2026-02-15 - Edición de fecha en planillas + principios SOLID
