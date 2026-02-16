@@ -54,12 +54,18 @@ const OTROS_GASTOS_COLS: ColDef[] = [
 // Concepto column_keys that "restan" instead of "suman"
 const RESTAN_KEYS = new Set(['POSNET', 'POSNET_CAJA']);
 
+// Keys that are handled by static columns (avoid duplication with dynamic conceptos)
+const STATIC_KEYS = new Set([
+  ...CC_COLS.map((c) => c.key),
+  ...OTROS_GASTOS_COLS.map((c) => c.key),
+]);
+
 /** Build column groups dynamically from conceptos */
 function buildGroups(conceptos: Concepto[], tipo: 'RENTAS' | 'CAJA'): ColGroup[] {
   const tipoConceptos = conceptos.filter((c) => c.tipo === tipo);
 
   const ingresosCols = tipoConceptos
-    .filter((c) => !RESTAN_KEYS.has(c.column_key))
+    .filter((c) => !RESTAN_KEYS.has(c.column_key) && !STATIC_KEYS.has(c.column_key) && !c.column_key.startsWith('DEPOSITO'))
     .map((c) => ({ key: c.column_key, label: c.nombre }));
 
   const restanConceptoCols = tipoConceptos

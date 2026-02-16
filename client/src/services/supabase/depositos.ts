@@ -324,7 +324,7 @@ export const depositosApi = {
         estado: nuevoEstado,
         tipo_uso: tipoUso,
         descripcion_uso: descripcion || null,
-        fecha_uso: new Date().toISOString().split('T')[0],
+        ...(deposito.fecha_uso ? {} : { fecha_uso: new Date().toISOString().split('T')[0] }),
       })
       .eq('id', id);
 
@@ -456,7 +456,7 @@ export const depositosApi = {
       .update({
         saldo_actual: nuevoSaldo,
         estado: nuevoEstado,
-        ...(nuevoSaldo === 0 ? { fecha_uso: new Date().toISOString().split('T')[0] } : {}),
+        ...(nuevoSaldo === 0 && !deposito.fecha_uso ? { fecha_uso: new Date().toISOString().split('T')[0] } : {}),
       })
       .eq('id', depositoId);
 

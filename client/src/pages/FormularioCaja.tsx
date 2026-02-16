@@ -86,9 +86,10 @@ const ConceptoInput: React.FC<{
         }}
         onChange={(e) => {
           setText(e.target.value);
-          const num = parseFloat(e.target.value);
-          if (!isNaN(num) && !/[+\-*/]/.test(e.target.value.slice(1))) {
-            onChange(e.target.value);
+          const normalized = e.target.value.replace(',', '.');
+          const num = parseFloat(normalized);
+          if (!isNaN(num) && !/[+\-*/]/.test(normalized.slice(1))) {
+            onChange(normalized);
           }
         }}
         onBlur={() => {
@@ -134,9 +135,13 @@ const FormularioCaja: React.FC = () => {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Split conceptos into suman/restan, excluding CC accounts
+  // Split conceptos into suman/restan, excluding CC accounts and deposit-related
   const conceptosSuman = useMemo(
-    () => allConceptos.filter(c => !RESTAN_KEYS.has(c.column_key) && !CC_KEY_SET.has(c.column_key)),
+    () => allConceptos.filter(c =>
+      !RESTAN_KEYS.has(c.column_key) &&
+      !CC_KEY_SET.has(c.column_key) &&
+      !c.column_key.startsWith('DEPOSITO')
+    ),
     [allConceptos]
   );
   const conceptosRestan = useMemo(
@@ -162,7 +167,8 @@ const FormularioCaja: React.FC = () => {
   const diferencia = entregado - total;
 
   const handleInputChange = (key: string, value: string) => {
-    const numValue = parseFloat(value) || 0;
+    const normalized = value.replace(',', '.');
+    const numValue = parseFloat(normalized) || 0;
     setValues((prev) => ({ ...prev, [key]: numValue }));
   };
 
