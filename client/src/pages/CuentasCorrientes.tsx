@@ -527,28 +527,28 @@ const CuentasCorrientes: React.FC = () => {
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-          <div className="space-y-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="space-y-1">
             <p className="text-sm font-medium text-text-secondary">
               Total Ingresos Histórico
             </p>
-            <p className="text-3xl font-bold text-success font-mono">
+            <p className="text-xl sm:text-2xl font-bold text-success font-mono break-all">
               {formatCurrency(totalIngresos)}
             </p>
           </div>
-          <div className="space-y-2">
+          <div className="space-y-1">
             <p className="text-sm font-medium text-text-secondary">
               Total Egresos Histórico
             </p>
-            <p className="text-3xl font-bold text-error font-mono">
+            <p className="text-xl sm:text-2xl font-bold text-error font-mono break-all">
               {formatCurrency(totalEgresos)}
             </p>
           </div>
-          <div className="space-y-2">
+          <div className="space-y-1">
             <p className="text-sm font-medium text-text-secondary">
               Saldo Actual Disponible
             </p>
-            <p className={`text-3xl font-bold font-mono ${saldoActual >= 0 ? 'text-success' : 'text-error'}`}>
+            <p className={`text-xl sm:text-2xl font-bold font-mono break-all ${saldoActual >= 0 ? 'text-success' : 'text-error'}`}>
               {formatCurrency(saldoActual)}
             </p>
           </div>
@@ -579,7 +579,7 @@ const CuentasCorrientes: React.FC = () => {
       {/* Actions and Filters Card */}
       <div className="bg-card rounded-xl border border-border p-4 space-y-4">
         {/* Botones de Acción */}
-        <div className="flex items-center gap-3 justify-end">
+        <div className="flex flex-wrap items-center gap-2 justify-end">
           <button
             onClick={handleNuevoMovimiento}
             disabled={!selectedCuentaId}
