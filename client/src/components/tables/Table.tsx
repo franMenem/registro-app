@@ -34,7 +34,7 @@ export const Table: React.FC<TableProps> = ({
             {columns.map((column) => (
               <th
                 key={column.key}
-                className={`px-6 py-3 text-xs font-medium text-text-secondary uppercase tracking-wider ${
+                className={`px-3 py-3 sm:px-6 text-xs font-medium text-text-secondary uppercase tracking-wider ${
                   column.align === 'right'
                     ? 'text-right'
                     : column.align === 'center'
@@ -98,7 +98,7 @@ export const Table: React.FC<TableProps> = ({
                   {columns.map((column) => (
                     <td
                       key={column.key}
-                      className={`px-6 py-4 whitespace-nowrap text-sm text-text-primary ${
+                      className={`px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap text-sm text-text-primary ${
                         column.align === 'right'
                           ? 'text-right'
                           : column.align === 'center'

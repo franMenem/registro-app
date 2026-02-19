@@ -895,7 +895,7 @@ const Formularios: React.FC = () => {
         maxWidth="lg"
       >
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-text-primary mb-1.5">
                 Número Formulario
@@ -921,7 +921,7 @@ const Formularios: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-text-primary mb-1.5">
                 Monto Total
@@ -971,7 +971,7 @@ const Formularios: React.FC = () => {
             </h4>
             <div className="space-y-3">
               {formData.vencimientos.map((venc, index) => (
-                <div key={index} className="grid grid-cols-3 gap-3">
+                <div key={index} className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-xs text-text-secondary mb-1">
                       Vencimiento {venc.numero_vencimiento}

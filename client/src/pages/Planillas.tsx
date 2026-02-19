@@ -1,10 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { showToast } from '@/components/ui/Toast';
 import { formatCurrency, formatDate } from '@/utils/format';
-import { Edit, Check, X } from 'lucide-react';
+import { Edit, Check, X, Eye, EyeOff } from 'lucide-react';
 import { planillasApi, conceptosApi, type PlanillaRow, type Concepto } from '@/services/supabase';
 
 // --- Column group definitions ---
@@ -108,6 +108,152 @@ function buildGroups(conceptos: Concepto[], tipo: 'RENTAS' | 'CAJA'): ColGroup[]
   return groups;
 }
 
+// ============================================================================
+// Group visibility — persists in localStorage per planilla type
+// ============================================================================
+
+const STORAGE_KEY = 'planillas-visible-groups';
+
+/** Returns true when running on a large screen (lg+: ≥1024px). */
+function isLargeScreen(): boolean {
+  return typeof window !== 'undefined' && window.innerWidth >= 1024;
+}
+
+function useGroupVisibility(groups: ColGroup[], planillaKey: string) {
+  const storageField = `${STORAGE_KEY}-${planillaKey}`;
+
+  const getInitialVisible = useCallback((): Set<string> => {
+    try {
+      const stored = localStorage.getItem(storageField);
+      if (stored) {
+        const parsed: string[] = JSON.parse(stored);
+        // Only keep labels that still exist in current groups
+        const valid = parsed.filter((l) => groups.some((g) => g.label === l));
+        if (valid.length > 0) return new Set(valid);
+      }
+    } catch {
+      // ignore
+    }
+    // Default: all visible on desktop, none on mobile
+    return isLargeScreen()
+      ? new Set(groups.map((g) => g.label))
+      : new Set<string>();
+  }, [groups, storageField]);
+
+  const [visible, setVisible] = useState<Set<string>>(getInitialVisible);
+
+  // Re-sync when groups change (conceptos loaded async)
+  useEffect(() => {
+    setVisible(getInitialVisible());
+  }, [getInitialVisible]);
+
+  const toggle = useCallback((label: string) => {
+    setVisible((prev) => {
+      const next = new Set(prev);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
+      try {
+        localStorage.setItem(storageField, JSON.stringify([...next]));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  }, [storageField]);
+
+  const showAll = useCallback(() => {
+    const all = new Set(groups.map((g) => g.label));
+    setVisible(all);
+    try {
+      localStorage.setItem(storageField, JSON.stringify([...all]));
+    } catch {
+      // ignore
+    }
+  }, [groups, storageField]);
+
+  const hideAll = useCallback(() => {
+    setVisible(new Set());
+    try {
+      localStorage.setItem(storageField, JSON.stringify([]));
+    } catch {
+      // ignore
+    }
+  }, [storageField]);
+
+  const visibleGroups = useMemo(
+    () => groups.filter((g) => visible.has(g.label)),
+    [groups, visible],
+  );
+
+  return { visible, visibleGroups, toggle, showAll, hideAll };
+}
+
+// ============================================================================
+// GroupToggles — pill buttons to show/hide column groups
+// ============================================================================
+
+interface GroupTogglesProps {
+  groups: ColGroup[];
+  visible: Set<string>;
+  onToggle: (label: string) => void;
+  onShowAll: () => void;
+  onHideAll: () => void;
+}
+
+const GroupToggles: React.FC<GroupTogglesProps> = ({
+  groups,
+  visible,
+  onToggle,
+  onShowAll,
+  onHideAll,
+}) => {
+  const allVisible = visible.size === groups.length;
+  const noneVisible = visible.size === 0;
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 py-3 px-1">
+      <span className="text-xs font-medium text-text-secondary shrink-0">Columnas:</span>
+      {groups.map((g) => {
+        const active = visible.has(g.label);
+        return (
+          <button
+            key={g.label}
+            onClick={() => onToggle(g.label)}
+            className={`
+              inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium
+              border transition-all duration-150
+              ${active
+                ? `${g.headerCls} border-current opacity-100`
+                : 'bg-background text-text-muted border-border opacity-60 hover:opacity-90'
+              }
+            `}
+          >
+            {active ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+            {g.label}
+          </button>
+        );
+      })}
+      <div className="flex items-center gap-1 ml-auto shrink-0">
+        <button
+          onClick={onShowAll}
+          disabled={allVisible}
+          className="text-xs text-primary hover:underline disabled:opacity-40 disabled:no-underline"
+        >
+          Ver todo
+        </button>
+        <span className="text-text-muted text-xs">·</span>
+        <button
+          onClick={onHideAll}
+          disabled={noneVisible}
+          className="text-xs text-text-secondary hover:underline disabled:opacity-40 disabled:no-underline"
+        >
+          Ocultar todo
+        </button>
+      </div>
+    </div>
+  );
+};
+
 /** Calculate total for a planilla row given its column groups.
  *  DEPOSITOS is a computed summary (sum of DEPOSITO_1..12), so we skip it
  *  to avoid double-counting. */
@@ -131,7 +277,14 @@ function calcularTotal(row: PlanillaRow, groups: ColGroup[]): number {
 
 interface PlanillaTableProps {
   title: string;
+  /** All column groups (used for totals calculation — never filtered) */
   groups: ColGroup[];
+  /** Subset of groups currently visible (controlled by GroupToggles) */
+  visibleGroups: ColGroup[];
+  visible: Set<string>;
+  onToggleGroup: (label: string) => void;
+  onShowAll: () => void;
+  onHideAll: () => void;
   data: PlanillaRow[];
   loading: boolean;
   editandoFecha: string | null;
@@ -147,6 +300,11 @@ interface PlanillaTableProps {
 const PlanillaTable: React.FC<PlanillaTableProps> = ({
   title,
   groups,
+  visibleGroups,
+  visible,
+  onToggleGroup,
+  onShowAll,
+  onHideAll,
   data,
   loading,
   editandoFecha,
@@ -158,11 +316,20 @@ const PlanillaTable: React.FC<PlanillaTableProps> = ({
   onChangeFecha,
   saving,
 }) => {
-  const allCols = useMemo(() => groups.flatMap((g) => g.cols), [groups]);
-  const colCount = allCols.length + 5; // fecha + data cols + total + entregado + dif + acciones
+  // visibleGroups drives what's rendered; groups drives totals (always full)
+  const allVisibleCols = useMemo(() => visibleGroups.flatMap((g) => g.cols), [visibleGroups]);
+  const colCount = allVisibleCols.length + 5; // fecha + visible cols + total + entregado + dif + acciones
 
   return (
     <Card title={title}>
+      {/* Group toggle bar — always shown */}
+      <GroupToggles
+        groups={groups}
+        visible={visible}
+        onToggle={onToggleGroup}
+        onShowAll={onShowAll}
+        onHideAll={onHideAll}
+      />
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-border">
           <thead>
@@ -174,7 +341,7 @@ const PlanillaTable: React.FC<PlanillaTableProps> = ({
               >
                 Fecha
               </th>
-              {groups.map((group) => (
+              {visibleGroups.map((group) => (
                 <th
                   key={group.label}
                   colSpan={group.cols.length}
@@ -210,11 +377,11 @@ const PlanillaTable: React.FC<PlanillaTableProps> = ({
             </tr>
             {/* Column names row */}
             <tr className="bg-card-hover">
-              {allCols.map((col) => (
+              {allVisibleCols.map((col) => (
                 <th
                   key={col.key}
                   className={`px-2 py-2 text-right text-[11px] font-medium text-text-secondary uppercase whitespace-nowrap${
-                    groups.some((g) => g.cols[0]?.key === col.key) ? ' border-l border-border' : ''
+                    visibleGroups.some((g) => g.cols[0]?.key === col.key) ? ' border-l border-border' : ''
                   }`}
                 >
                   {col.label}
@@ -254,7 +421,7 @@ const PlanillaTable: React.FC<PlanillaTableProps> = ({
                         formatDate(dia.fecha)
                       )}
                     </td>
-                    {allCols.map(({ key }) => (
+                    {allVisibleCols.map(({ key }) => (
                       <td key={key} className="px-2 py-2 text-right">
                         {editando && key !== 'DEPOSITOS' ? (
                           <input
@@ -364,6 +531,10 @@ const Planillas: React.FC = () => {
   // Build column groups from conceptos
   const rentasGroups = useMemo(() => buildGroups(conceptos, 'RENTAS'), [conceptos]);
   const cajaGroups = useMemo(() => buildGroups(conceptos, 'CAJA'), [conceptos]);
+
+  // Group visibility state (persisted in localStorage)
+  const rentasVis = useGroupVisibility(rentasGroups, 'rentas');
+  const cajaVis = useGroupVisibility(cajaGroups, 'caja');
 
   // Queries
   const { data: rentasData, isLoading: rentasLoading } = useQuery({
@@ -506,6 +677,11 @@ const Planillas: React.FC = () => {
       <PlanillaTable
         title="Planilla RENTAS"
         groups={rentasGroups}
+        visibleGroups={rentasVis.visibleGroups}
+        visible={rentasVis.visible}
+        onToggleGroup={rentasVis.toggle}
+        onShowAll={rentasVis.showAll}
+        onHideAll={rentasVis.hideAll}
         data={rentas}
         loading={rentasLoading}
         editandoFecha={editandoRentasFecha}
@@ -544,6 +720,11 @@ const Planillas: React.FC = () => {
       <PlanillaTable
         title="Planilla CAJA"
         groups={cajaGroups}
+        visibleGroups={cajaVis.visibleGroups}
+        visible={cajaVis.visible}
+        onToggleGroup={cajaVis.toggle}
+        onShowAll={cajaVis.showAll}
+        onHideAll={cajaVis.hideAll}
         data={caja}
         loading={cajaLoading}
         editandoFecha={editandoCajaFecha}

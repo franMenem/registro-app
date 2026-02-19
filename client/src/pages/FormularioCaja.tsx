@@ -319,7 +319,7 @@ const FormularioCaja: React.FC = () => {
 
       {/* Selector de Fecha */}
       <div className="bg-card rounded-xl border border-border p-4">
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-3">
           <label className="text-sm font-medium text-text-primary">Fecha del movimiento:</label>
           <input
             type="date"
@@ -327,7 +327,7 @@ const FormularioCaja: React.FC = () => {
             onChange={(e) => setFecha(e.target.value)}
             className="rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           />
-          <span className="text-sm text-text-muted">
+          <span className="text-sm text-text-muted capitalize">
             {format(new Date(fecha + 'T00:00:00'), "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })}
           </span>
         </div>
@@ -355,7 +355,7 @@ const FormularioCaja: React.FC = () => {
                     <h3 className="text-xs font-semibold text-success uppercase tracking-wide">
                       CONCEPTOS QUE SUMAN
                     </h3>
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                       {conceptosSuman.map(c => (
                         <ConceptoInput
                           key={c.id}
@@ -373,7 +373,7 @@ const FormularioCaja: React.FC = () => {
                   <h3 className="text-xs font-semibold text-error uppercase tracking-wide mb-4">
                     CONCEPTOS QUE RESTAN
                   </h3>
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                     {conceptosRestan.map(c => (
                       <ConceptoInput
                         key={c.id}
@@ -400,7 +400,7 @@ const FormularioCaja: React.FC = () => {
               <h3 className="text-xs font-semibold text-text-secondary uppercase tracking-wide mb-4">
                 DEPOSITOS ADICIONALES
               </h3>
-              <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                 {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
                   <ConceptoInput
                     key={n}
@@ -417,7 +417,7 @@ const FormularioCaja: React.FC = () => {
               <h3 className="text-xs font-semibold text-warning uppercase tracking-wide mb-4">
                 OTROS GASTOS
               </h3>
-              <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                 {OTROS_GASTOS.map(g => (
                   <ConceptoInput
                     key={g.key}
@@ -437,7 +437,7 @@ const FormularioCaja: React.FC = () => {
             </h2>
 
             <div className="bg-background rounded-lg p-5 space-y-4">
-              <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                 {CC_KEYS.map(key => (
                   <ConceptoInput
                     key={key}

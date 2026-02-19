@@ -26,16 +26,24 @@ export const Modal: React.FC<ModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className={`bg-background rounded-lg shadow-lg w-full ${maxWidthClasses[maxWidth]} p-6 mx-4`}>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50">
+      <div
+        className={`
+          bg-background shadow-lg w-full ${maxWidthClasses[maxWidth]}
+          rounded-t-xl sm:rounded-xl
+          p-4 sm:p-6
+          max-h-[90dvh] overflow-y-auto
+          mx-0 sm:mx-4
+        `}
+      >
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold text-text-primary">{title}</h2>
+          <h2 className="text-lg sm:text-xl font-bold text-text-primary">{title}</h2>
           <button
             onClick={onClose}
-            className="text-text-secondary hover:text-text-primary transition-colors"
+            className="text-text-secondary hover:text-text-primary transition-colors shrink-0 p-1 -mr-1"
             aria-label="Cerrar"
           >
-            <X className="h-6 w-6" />
+            <X className="h-5 w-5" />
           </button>
         </div>
         {children}
