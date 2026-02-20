@@ -68,5 +68,24 @@ export const validateCUIT = (cuit: string): boolean => {
  * Parsea fechas ISO que vienen de Supabase/DB como strings.
  * Usa parseISO de date-fns para evitar el bug de timezone donde
  * new Date("2026-02-05") se interpreta como UTC y muestra el día anterior.
+ * Retorna Invalid Date (sin tirar) si el string está vacío o es inválido.
  */
-export const parseDateFromDB = (dateString: string): Date => parseISO(dateString);
+export const parseDateFromDB = (dateString: string | null | undefined): Date => {
+  if (!dateString) return new Date(NaN);
+  return parseISO(dateString);
+};
+
+/**
+ * Formatea una fecha de DB de forma segura.
+ * Retorna el fallback si la fecha es inválida o vacía.
+ */
+export const formatDateFromDB = (
+  dateString: string | null | undefined,
+  fmt: string,
+  fallback = '-'
+): string => {
+  if (!dateString) return fallback;
+  const date = parseISO(dateString);
+  if (isNaN(date.getTime())) return fallback;
+  return dateFnsFormat(date, fmt);
+};

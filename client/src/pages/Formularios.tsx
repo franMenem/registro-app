@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { parseDateFromDB } from '@/utils/format';
+import { parseDateFromDB, formatDateFromDB } from '@/utils/format';
 import { showToast } from '@/components/ui/Toast';
 import {
   Plus,
@@ -404,20 +404,27 @@ const Formularios: React.FC = () => {
 
   // Ordenar activos por fecha de vencimiento pendiente más antigua (los más vencidos primero)
   formulariosActivos.sort((a, b) => {
-    // Encontrar el vencimiento pendiente más antiguo de cada formulario
+    const safeTime = (dateStr: string) => {
+      const d = parseDateFromDB(dateStr);
+      return isNaN(d.getTime()) ? Infinity : d.getTime();
+    };
+
     const vencimientoPendienteA = a.vencimientos
-      .filter((v: Vencimiento) => v.estado === 'PENDIENTE')
-      .sort((v1: Vencimiento, v2: Vencimiento) => parseDateFromDB(v1.fecha_vencimiento).getTime() - parseDateFromDB(v2.fecha_vencimiento).getTime())[0];
+      .filter((v: Vencimiento) => v.estado === 'PENDIENTE' && v.fecha_vencimiento)
+      .sort((v1: Vencimiento, v2: Vencimiento) => safeTime(v1.fecha_vencimiento) - safeTime(v2.fecha_vencimiento))[0];
 
     const vencimientoPendienteB = b.vencimientos
-      .filter((v: Vencimiento) => v.estado === 'PENDIENTE')
-      .sort((v1: Vencimiento, v2: Vencimiento) => parseDateFromDB(v1.fecha_vencimiento).getTime() - parseDateFromDB(v2.fecha_vencimiento).getTime())[0];
+      .filter((v: Vencimiento) => v.estado === 'PENDIENTE' && v.fecha_vencimiento)
+      .sort((v1: Vencimiento, v2: Vencimiento) => safeTime(v1.fecha_vencimiento) - safeTime(v2.fecha_vencimiento))[0];
 
-    // Si no tienen vencimientos pendientes, usar el primer vencimiento
-    const fechaA = vencimientoPendienteA ? parseDateFromDB(vencimientoPendienteA.fecha_vencimiento) : parseDateFromDB(a.vencimientos[0].fecha_vencimiento);
-    const fechaB = vencimientoPendienteB ? parseDateFromDB(vencimientoPendienteB.fecha_vencimiento) : parseDateFromDB(b.vencimientos[0].fecha_vencimiento);
+    const fechaA = vencimientoPendienteA
+      ? safeTime(vencimientoPendienteA.fecha_vencimiento)
+      : a.vencimientos[0]?.fecha_vencimiento ? safeTime(a.vencimientos[0].fecha_vencimiento) : Infinity;
+    const fechaB = vencimientoPendienteB
+      ? safeTime(vencimientoPendienteB.fecha_vencimiento)
+      : b.vencimientos[0]?.fecha_vencimiento ? safeTime(b.vencimientos[0].fecha_vencimiento) : Infinity;
 
-    return fechaA.getTime() - fechaB.getTime(); // Más antigua primero
+    return fechaA - fechaB; // Más antigua primero
   });
 
   const formulariosFiltered = tabActivo === 'activos' ? formulariosActivos : formulariosHistoricos;
@@ -732,7 +739,7 @@ const Formularios: React.FC = () => {
                           {formulario.numero}
                         </span>
                         <span className="text-xs text-text-muted">
-                          {format(parseDateFromDB(formulario.fecha_compra), 'dd/MM/yyyy')}
+                          {formatDateFromDB(formulario.fecha_compra, 'dd/MM/yyyy')}
                         </span>
                       </div>
                     </td>
@@ -776,7 +783,7 @@ const Formularios: React.FC = () => {
                               Venc {venc.numero_vencimiento}:
                             </span>
                             <span className="text-text-primary">
-                              {format(parseDateFromDB(venc.fecha_vencimiento), 'dd/MM/yy')}
+                              {formatDateFromDB(venc.fecha_vencimiento, 'dd/MM/yy')}
                             </span>
                             <span className="font-medium text-text-primary">
                               {formatCurrency(venc.monto)}
@@ -860,7 +867,7 @@ const Formularios: React.FC = () => {
                           {formatCurrency(pago.monto)}
                         </span>
                         <span className="text-sm text-text-secondary">
-                          {format(parseDateFromDB(pago.fecha), 'dd/MM/yyyy')}
+                          {formatDateFromDB(pago.fecha, 'dd/MM/yyyy')}
                         </span>
                       </div>
                       {pago.formularios.length > 0 && (
