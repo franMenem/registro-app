@@ -511,6 +511,19 @@ export const depositosApi = {
   },
 
   /**
+   * Eliminar gasto de depósito sin asignar (solo si no tiene deposito_id)
+   */
+  eliminarGasto: async (gastoId: number): Promise<void> => {
+    const { error } = await supabase
+      .from('gastos_deposito')
+      .delete()
+      .eq('id', gastoId)
+      .is('deposito_id', null);
+
+    if (error) throw new Error(error.message);
+  },
+
+  /**
    * Obtener depósitos elegibles para asignar gastos (PENDIENTE o A_FAVOR, sin cuenta CC)
    */
   getElegiblesParaGastos: async (): Promise<Deposito[]> => {

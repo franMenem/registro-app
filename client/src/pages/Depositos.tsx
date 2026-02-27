@@ -239,6 +239,18 @@ const Depositos: React.FC = () => {
     },
   });
 
+  // Mutation para eliminar gasto sin asignar
+  const deleteGastoMutation = useMutation({
+    mutationFn: (gastoId: number) => depositosApi.eliminarGasto(gastoId),
+    onSuccess: () => {
+      showToast.success('Gasto eliminado');
+      queryClient.invalidateQueries({ queryKey: ['gastos-sin-asignar'] });
+    },
+    onError: (error: Error) => {
+      showToast.error(error.message || 'Error al eliminar el gasto');
+    },
+  });
+
   // Mutation para cambiar estado
   const cambiarEstadoMutation = useMutation({
     mutationFn: ({ id, accion, data }: { id: number; accion: string; data?: any }) => {
@@ -870,14 +882,24 @@ const Depositos: React.FC = () => {
                       </select>
                     </td>
                     <td className="px-3 py-2 text-center">
-                      <Button
-                        variant="primary"
-                        size="sm"
-                        onClick={() => handleAsignarGasto(gasto)}
-                        disabled={!gastoDepositoMap[gasto.id] || asignarGastoMutation.isPending}
-                      >
-                        Asignar
-                      </Button>
+                      <div className="flex items-center justify-center gap-2">
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={() => handleAsignarGasto(gasto)}
+                          disabled={!gastoDepositoMap[gasto.id] || asignarGastoMutation.isPending}
+                        >
+                          Asignar
+                        </Button>
+                        <button
+                          onClick={() => deleteGastoMutation.mutate(gasto.id)}
+                          disabled={deleteGastoMutation.isPending}
+                          title="Eliminar gasto"
+                          className="p-1.5 rounded text-text-muted hover:text-red-600 hover:bg-red-50 transition-colors"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
