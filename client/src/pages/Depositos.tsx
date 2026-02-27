@@ -402,7 +402,7 @@ const Depositos: React.FC = () => {
   const columns: TableColumn[] = [
     { key: 'fecha_ingreso', label: 'Fecha Ingreso', width: '110px' },
     { key: 'fecha_uso', label: 'Fecha Uso', width: '110px' },
-    { key: 'titular', label: 'Titular', width: '180px' },
+    { key: 'titular', label: 'Titular', width: '200px' },
     { key: 'monto_original', label: 'Monto Original', align: 'right', width: '130px' },
     { key: 'saldo_actual', label: 'Saldo Actual', align: 'right', width: '130px' },
     { key: 'estado', label: 'Estado', width: '110px' },
@@ -423,7 +423,7 @@ const Depositos: React.FC = () => {
         );
       case 'titular':
         return (
-          <span className="text-sm font-medium">
+          <span className="text-sm font-medium max-w-[200px] line-clamp-2 break-words whitespace-normal block">
             {row.cuenta_nombre || row.cliente_nombre || row.titular}
           </span>
         );
