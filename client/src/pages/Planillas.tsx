@@ -448,9 +448,19 @@ const PlanillaTable: React.FC<PlanillaTableProps> = ({
                             <span className="font-mono text-sm">{formatCurrency(total)}</span>
                           </td>
                           <td className="px-3 py-2 text-right whitespace-nowrap bg-blue-500/5">
-                            <span className="font-mono text-sm font-semibold text-blue-700">
-                              {efectivo > 0 ? formatCurrency(efectivo) : '\u2014'}
-                            </span>
+                            {editando ? (
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={efectivo}
+                                onChange={(e) => onChangeValue('EFECTIVO', parseFloat(e.target.value) || 0)}
+                                className="w-24 text-right rounded border border-blue-300 px-1.5 py-1 font-mono text-xs"
+                              />
+                            ) : (
+                              <span className="font-mono text-sm font-semibold text-blue-700">
+                                {efectivo > 0 ? formatCurrency(efectivo) : '\u2014'}
+                              </span>
+                            )}
                           </td>
                           <td className="px-3 py-2 text-right whitespace-nowrap">
                             {efectivo > 0 ? (
@@ -566,6 +576,8 @@ const Planillas: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['planillas-rentas'] });
       queryClient.invalidateQueries({ queryKey: ['controles-semanales'] });
       queryClient.invalidateQueries({ queryKey: ['controles-quincenales'] });
+      queryClient.invalidateQueries({ queryKey: ['movimientos-efectivo'] });
+      queryClient.invalidateQueries({ queryKey: ['efectivo-stats'] });
     },
     onError: (error: Error) => {
       showToast.error(error.message || 'Error al actualizar');
@@ -584,6 +596,8 @@ const Planillas: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['gastos-registrales'] });
       queryClient.invalidateQueries({ queryKey: ['veps'] });
       queryClient.invalidateQueries({ queryKey: ['epagos'] });
+      queryClient.invalidateQueries({ queryKey: ['movimientos-efectivo'] });
+      queryClient.invalidateQueries({ queryKey: ['efectivo-stats'] });
     },
     onError: (error: Error) => {
       showToast.error(error.message || 'Error al actualizar');
@@ -601,6 +615,8 @@ const Planillas: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['planillas-rentas'] });
       queryClient.invalidateQueries({ queryKey: ['controles-semanales'] });
       queryClient.invalidateQueries({ queryKey: ['controles-quincenales'] });
+      queryClient.invalidateQueries({ queryKey: ['movimientos-efectivo'] });
+      queryClient.invalidateQueries({ queryKey: ['efectivo-stats'] });
     },
     onError: (error: Error) => {
       showToast.error(error.message || 'Error al cambiar fecha');
@@ -620,6 +636,8 @@ const Planillas: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['gastos-registrales'] });
       queryClient.invalidateQueries({ queryKey: ['veps'] });
       queryClient.invalidateQueries({ queryKey: ['epagos'] });
+      queryClient.invalidateQueries({ queryKey: ['movimientos-efectivo'] });
+      queryClient.invalidateQueries({ queryKey: ['efectivo-stats'] });
     },
     onError: (error: Error) => {
       showToast.error(error.message || 'Error al cambiar fecha');

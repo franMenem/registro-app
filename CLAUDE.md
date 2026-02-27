@@ -463,6 +463,24 @@ Estos principios se aplican a **TODO** código generado o modificado. No son sug
 - **YAGNI:** No construir para requisitos futuros hipotéticos. Solo lo que se necesita ahora.
 - **Clean Code:** Nombres descriptivos, funciones cortas, sin comentarios obvios, sin código muerto.
 
+### ✅ CHECKLIST OBLIGATORIO — ejecutar ANTES y DESPUÉS de cada cambio
+
+**ANTES de escribir código:**
+- [ ] ¿La función/componente tiene UNA sola responsabilidad? (S)
+- [ ] ¿Estoy extendiendo sin romper lo existente? (O)
+- [ ] ¿Puedo reusar algo que ya existe, o estoy duplicando? (DRY)
+- [ ] ¿Es la solución más simple posible para el problema actual? (KISS)
+- [ ] ¿Estoy construyendo algo que no se necesita hoy? Si sí → no lo hagas (YAGNI)
+
+**DESPUÉS de escribir código:**
+- [ ] ¿El componente/función mezcla responsabilidades? Si sí → separar (S)
+- [ ] ¿Rompí algún contrato existente (props, tipos, returns)? Si sí → corregir (L)
+- [ ] ¿Agregué a una interfaz algo que no todos los consumidores necesitan? Si sí → segregar (I)
+- [ ] ¿La lógica depende de implementaciones concretas en vez de abstracciones? (D)
+- [ ] ¿Quedó código muerto, imports sin uso, o variables temporales? → limpiar
+
+**Regla de oro:** Si no podés explicar el cambio en una oración sin usar "y también", revisá SRP.
+
 ---
 
-**Última actualización:** 2026-02-15 - Edición de fecha en planillas + principios SOLID
+**Última actualización:** 2026-02-26 - Checklist SOLID obligatorio pre/post implementación
